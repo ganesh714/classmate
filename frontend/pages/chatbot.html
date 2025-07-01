@@ -1388,7 +1388,7 @@
     const todoListOption = document.getElementById("todo-list-option");
     const sidebarSearchBtn = document.getElementById("sidebar-search-btn");
     const sidebarSearchInput = document.getElementById("sidebar-search-input");
-    const serverUrl = "https://classmate1-ffw7.onrender.com";
+    const serverUrl = "https://classmate1-juji.onrender.com";
     const style = document.createElement("style"); 
     const toast = document.getElementById("toast");
     const themeToggleBtn = document.getElementById("theme-toggle-btn");
@@ -1479,20 +1479,22 @@ Remember to break your goals into phases and tasks.`;
     }
 
     async function fetchWithAuth(url, options = {}) {
-        const token = localStorage.getItem("token");
+        const token = getAuthToken();
         if (!token) {
-            throw new Error("No token found in localStorage");
+        window.location.href = 'Login page.html';
+        throw new Error("User not authenticated");
         }
-
         const headers = {
-            ...(options.headers || {}),
-            Authorization: "Bearer " + token
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`,
+        ...options.headers,
         };
-
-        return fetch(url, {
-            ...options,
-            headers
-        });
+        const response = await fetch(url, { ...options, headers });
+        if (response.status === 401) {
+        window.location.href = 'Login page.html';
+        throw new Error("Session expired");
+        }
+        return response;
     }
 
 
