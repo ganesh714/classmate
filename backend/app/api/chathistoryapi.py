@@ -49,14 +49,17 @@ async def create_chat(current_user: dict = Depends(get_current_user)):
     }
     result = chats_collection.insert_one(chat_data)
     new_chat = chats_collection.find_one({"_id": result.inserted_id})
-    return ChatInDB.model_validate(new_chat)
+    if not new_chat:
+        raise HTTPException(status_code=500, detail="Failed to create and retrieve chat.")
+    # CORRECTED: Convert ObjectId to str before validation
+    return ChatInDB.model_validate({**new_chat, "_id": str(new_chat["_id"])})
 
 @router.get("/api/chats", response_model=List[ChatInfo])
 async def get_all_chats(current_user: dict = Depends(get_current_user)):
     user_id = str(current_user["_id"])
-    # Projection to only get necessary fields for the list
     chats = chats_collection.find({"user_id": user_id}, {"_id": 1, "title": 1, "lastActivityTimestamp": 1})
-    return [ChatInfo.model_validate(chat) for chat in chats]
+    # CORRECTED: Convert ObjectId to str for each document
+    return [ChatInfo.model_validate({**chat, "_id": str(chat["_id"])}) for chat in chats]
 
 @router.get("/api/chats/{chat_id}", response_model=ChatInDB)
 async def get_chat(chat_id: str, current_user: dict = Depends(get_current_user)):
@@ -67,7 +70,8 @@ async def get_chat(chat_id: str, current_user: dict = Depends(get_current_user))
     chat = chats_collection.find_one({"_id": ObjectId(chat_id), "user_id": user_id})
     if not chat:
         raise HTTPException(status_code=404, detail="Chat not found")
-    return ChatInDB.model_validate(chat)
+    # CORRECTED: Convert ObjectId to str before validation
+    return ChatInDB.model_validate({**chat, "_id": str(chat["_id"])})
 
 @router.post("/api/chats/{chat_id}/messages", response_model=ChatInDB)
 async def add_message(chat_id: str, message: Message, current_user: dict = Depends(get_current_user)):
@@ -86,7 +90,10 @@ async def add_message(chat_id: str, message: Message, current_user: dict = Depen
         raise HTTPException(status_code=404, detail="Chat not found")
         
     updated_chat = chats_collection.find_one({"_id": ObjectId(chat_id)})
-    return ChatInDB.model_validate(updated_chat)
+    if not updated_chat:
+        raise HTTPException(status_code=404, detail="Chat not found after update.")
+    # CORRECTED: Convert ObjectId to str before validation
+    return ChatInDB.model_validate({**updated_chat, "_id": str(updated_chat["_id"])})
 
 @router.put("/api/chats/{chat_id}", response_model=ChatInDB)
 async def update_chat_title(chat_id: str, title_update: ChatTitleUpdate, current_user: dict = Depends(get_current_user)):
@@ -102,7 +109,10 @@ async def update_chat_title(chat_id: str, title_update: ChatTitleUpdate, current
         raise HTTPException(status_code=404, detail="Chat not found")
 
     updated_chat = chats_collection.find_one({"_id": ObjectId(chat_id)})
-    return ChatInDB.model_validate(updated_chat)
+    if not updated_chat:
+        raise HTTPException(status_code=404, detail="Chat not found after update.")
+    # CORRECTED: Convert ObjectId to str before validation
+    return ChatInDB.model_validate({**updated_chat, "_id": str(updated_chat["_id"])})
 
 @router.delete("/api/chats/{chat_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_chat(chat_id: str, current_user: dict = Depends(get_current_user)):
