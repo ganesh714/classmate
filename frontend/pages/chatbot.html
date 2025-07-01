@@ -1478,6 +1478,24 @@ Remember to break your goals into phases and tasks.`;
         return localStorage.getItem('auth_token');
     }
 
+    async function fetchWithAuth(url, options = {}) {
+        const token = localStorage.getItem("token");
+        if (!token) {
+            throw new Error("No token found in localStorage");
+        }
+
+        const headers = {
+            ...(options.headers || {}),
+            Authorization: "Bearer " + token
+        };
+
+        return fetch(url, {
+            ...options,
+            headers
+        });
+    }
+
+
     async function fetchUserSettings() {
         const token = getAuthToken();
         if (!token) {
