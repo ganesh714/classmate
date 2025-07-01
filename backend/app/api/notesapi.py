@@ -60,13 +60,18 @@ async def create_note(note: NoteCreateUpdate, current_user: dict = Depends(get_c
     if not created_note:
         raise HTTPException(status_code=500, detail="Failed to create and retrieve note.")
         
+    created_note["_id"] = str(created_note["_id"])
     return NoteInDB.model_validate(created_note)
+
 
 @router.get("/api/notes", response_model=List[NoteInDB])
 async def get_notes(current_user: dict = Depends(get_current_user)):
     user_id = str(current_user["_id"])
     user_notes = notes_collection.find({"user_id": user_id})
-    return [NoteInDB.model_validate(note) for note in user_notes]
+    return [
+        NoteInDB.model_validate({**note, "_id": str(note["_id"])})    
+        for note in user_notes 
+    ]
 
 @router.put("/api/notes/{note_id}", response_model=NoteInDB)
 async def update_note(note_id: str, note_update: NoteCreateUpdate, current_user: dict = Depends(get_current_user)):
@@ -87,7 +92,9 @@ async def update_note(note_id: str, note_update: NoteCreateUpdate, current_user:
     if not updated_note:
         raise HTTPException(status_code=500, detail="Failed to retrieve updated note.")
 
+    rupdated_note["_id"] = str(updated_note["_id"])
     return NoteInDB.model_validate(updated_note)
+
 
 @router.delete("/api/notes/{note_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_note(note_id: str, current_user: dict = Depends(get_current_user)):
