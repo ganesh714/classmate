@@ -1370,293 +1370,835 @@
         </div>
     </div>
 </div>
-
 <script>
-    // --- DOM Elements ---
-    const chatContainer = document.getElementById("chat-container");
-    const userInput = document.getElementById("user-input");
-    const sendButton = document.getElementById("send-button");
-    const micButton = document.getElementById("mic-button");
-    const loadingIndicator = document.getElementById("loading-indicator");
-    const sidebar = document.getElementById("sidebar");
-    const sidebarOverlay = document.getElementById("sidebar-overlay");
-    const menuToggle = document.getElementById("menu-toggle");
-    const newChatBtn = document.getElementById("new-chat-btn");
-    const chatHistoryList = document.getElementById("chat-history-list");
-    const todoListOption = document.getElementById("todo-list-option");
-    const toast = document.getElementById("toast");
-    const pageLoader = document.getElementById('page-loader-chatbot');
-    
-    // --- State Management ---
-    let currentChatId = null;
-    let chatHistoryCache = []; // Holds list of {id, title, timestamp} from the server
-    let currentUserSettings = null; 
-    let messageBeingSent = false;
-    let isToDoListModeActive = false;
-
-    // --- API & Auth Helpers ---
-    const API_URL = "https://classmate-juji.onrender.com"; // Your server URL
-
-    function getAuthToken() {
-        return localStorage.getItem('auth_token');
+  // --- API & Auth Helpers (from notes.html/taskManager.html) ---
+  const API_URL = "https://classmate-juji.onrender.com";
+  function getAuthToken() {
+    return localStorage.getItem('auth_token');
+  }
+  async function fetchWithAuth(url, options = {}) {
+    const token = getAuthToken();
+    if (!token) {
+      window.location.href = 'Login page.html';
+      throw new Error("User not authenticated");
     }
+    const headers = {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${token}`,
+      ...options.headers,
+    };
+    const response = await fetch(url, { ...options, headers });
+    if (response.status === 401) {
+      window.location.href = 'Login page.html';
+      throw new Error("Session expired");
+    }
+    return response;
+  }
 
-    async function fetchWithAuth(url, options = {}) {
-        const token = getAuthToken();
-        if (!token) {
-            window.location.href = 'Login page.html'; 
-            throw new Error("User not authenticated");
+  // --- Chat History State ---
+  let allChats = {}; // {chatId: {id, title, messages, lastActivityTimestamp}}
+  let currentChatId = null;
+
+  // --- Chat API Logic ---
+  async function loadChats() {
+    try {
+      const response = await fetchWithAuth(`${API_URL}/api/chats`);
+      if (!response.ok) throw new Error("Failed to fetch chats");
+      const chatList = await response.json();
+      allChats = {};
+      for (const chatInfo of chatList) {
+        const chatResp = await fetchWithAuth(`${API_URL}/api/chats/${chatInfo.id}`);
+        if (chatResp.ok) {
+          const chat = await chatResp.json();
+          allChats[chat.id] = chat;
+        }
+      }
+      // Pick the most recent chat as current
+      const sorted = Object.values(allChats).sort((a, b) => new Date(b.lastActivityTimestamp) - new Date(a.lastActivityTimestamp));
+      if (sorted.length > 0) {
+        currentChatId = sorted[0].id;
+        switchChat(currentChatId);
+      } else {
+        await startNewChat(false);
+      }
+      renderChatHistory();
+    } catch (error) {
+      console.error(error);
+      showToast("Could not load your chats. Please try again.");
+    }
+  }
+
+  async function startNewChat(switchToNew = true) {
+    try {
+      const response = await fetchWithAuth(`${API_URL}/api/chats`, { method: 'POST' });
+      if (!response.ok) throw new Error("Failed to create chat");
+      const chat = await response.json();
+      allChats[chat.id] = chat;
+      if (switchToNew) {
+        currentChatId = chat.id;
+        chatContainer.innerHTML = "";
+        userInput.value = "";
+        userInput.dispatchEvent(new Event("input"));
+        sendButton.disabled = true;
+        if (isToDoListModeActive) {
+          isToDoListModeActive = false;
+          todoListOption.classList.remove("active");
+          userInput.placeholder = "Ask ClassMate";
+        }
+      }
+      renderChatHistory();
+    } catch (error) {
+      console.error(error);
+      showToast("Error creating new chat.");
+    }
+  }
+
+  async function switchChat(chatId) {
+    try {
+      if (!allChats[chatId]) {
+        // Try to fetch from API
+        const chatResp = await fetchWithAuth(`${API_URL}/api/chats/${chatId}`);
+        if (chatResp.ok) {
+          const chat = await chatResp.json();
+          allChats[chat.id] = chat;
+        } else {
+          throw new Error("Chat not found");
+        }
+      }
+      currentChatId = chatId;
+      chatContainer.innerHTML = "";
+      allChats[currentChatId].messages.forEach(msg => addMessageToUI(msg.sender, msg.content));
+      renderChatHistory();
+      userInput.value = "";
+      userInput.dispatchEvent(new Event("input"));
+      sendButton.disabled = true;
+      if (isToDoListModeActive) {
+        isToDoListModeActive = false;
+        todoListOption.classList.remove("active");
+        userInput.placeholder = "Ask ClassMate";
+      }
+    } catch (error) {
+      console.error(error);
+      showToast("Error switching chat.");
+    }
+  }
+
+  async function sendMessage() {
+    const messageText = userInput.value.trim();
+    if (!messageText || messageBeingSent) return;
+    if (!currentChatId || !allChats[currentChatId]) {
+      showToast("No active chat. Please start a new chat.");
+      return;
+    }
+    messageBeingSent = true;
+    sendButton.disabled = true;
+    loadingIndicator.style.display = "flex";
+    userInput.value = "";
+    userInput.dispatchEvent(new Event("input"));
+    userInput.placeholder = "ClassMate is thinking...";
+    userInput.disabled = true;
+    // Add user message to DB
+    try {
+      await fetchWithAuth(`${API_URL}/api/chats/${currentChatId}/messages`, {
+        method: 'POST',
+        body: JSON.stringify({ sender: "user", content: messageText })
+      });
+      // Add to UI
+      addMessageToUI("user", messageText);
+      // Call AI API as before (existing logic)
+      // ...
+    } catch (error) {
+      console.error(error);
+      showToast("Error sending message.");
+    } finally {
+      messageBeingSent = false;
+      userInput.disabled = false;
+      userInput.placeholder = isToDoListModeActive ? "Enter goal for To-Do List..." : "Ask ClassMate";
+      sendButton.disabled = userInput.value.trim() === "";
+      userInput.focus();
+      loadingIndicator.style.display = "none";
+    }
+  }
+
+  // --- Save to Notes / To-Do List ---
+  async function saveToNotes(title, content) {
+    try {
+      const note = { title: title.substring(0, 50) || "Untitled Note", content, type: "text" };
+      const response = await fetchWithAuth(`${API_URL}/api/notes`, {
+        method: 'POST',
+        body: JSON.stringify([note])
+      });
+      if (!response.ok) throw new Error("Failed to save note");
+      showToast("Saved to notes!");
+    } catch (e) {
+      console.error("Failed to save note:", e);
+      showToast("Error saving note.", "error");
+    }
+  }
+
+  async function saveToTaskMaster(content) {
+    try {
+      const task = { text: content, pinned: false, highlighted: false, checkbox_states: {} };
+      const response = await fetchWithAuth(`${API_URL}/api/tasks`, {
+        method: 'POST',
+        body: JSON.stringify([task])
+      });
+      if (!response.ok) throw new Error("Failed to save to-do list");
+      showToast("To-do list saved to Task Manager!");
+    } catch (e) {
+      console.error("Failed to save to Task Manager:", e);
+      showToast("Error saving To-Do list.", "error");
+    }
+  }
+
+  // --- Update UI logic to use API-based state ---
+  // Remove all localStorage usage for chat history, notes, and to-dos
+  // ... existing code ...
+
+  // On load
+  loadChats();
+</script>
+</body>
+</html>
+
+    function startNewChat(switchToNew = true) {
+        if (currentChatId && allChats[currentChatId] && allChats[currentChatId].messages.length === 0) {
+            // If current chat is new and empty, don't create another one, just stay
+             if (switchToNew) { // If called with switchToNew=true, it means user explicitly clicked "New Chat"
+                // Proceed to create a new one even if current is empty, but only if currentChatId is not null
+                 if(currentChatId === null) { /* no chat exists, so proceed */ }
+                 else { /* a chat exists, could be empty, but new chat was clicked */ }
+             } else { // if called with switchToNew=false (e.g. initial load, or after delete), don't create if current is empty
+                 return;
+             }
         }
 
-        const headers = {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${token}`,
-            ...options.headers,
+
+        const newChatId = `chat_${Date.now()}`;
+        allChats[newChatId] = {
+            title: "New Chat", 
+            lastActivityTimestamp: Date.now(),
+            messages: []
         };
-
-        const response = await fetch(url, { ...options, headers });
-
-        if (response.status === 401) {
-            localStorage.removeItem('auth_token');
-            window.location.href = 'Login page.html';
-            throw new Error("Session expired");
-        }
-        return response;
-    }
-
-    // --- Core Application Logic ---
-    async function initializeApp() {
-        if(pageLoader) pageLoader.style.display = 'flex';
-        applyThemeSynchronized(); 
-        
-        await fetchUserSettings();
-        await fetchAndRenderChatHistory();
-        
-        if(pageLoader) {
-            pageLoader.style.opacity = '0';
-            setTimeout(() => { pageLoader.style.display = 'none'; }, 300);
-        }
-        
-        checkForQueryParameters();
-        updateInputButtonState();
-    }
-
-    async function fetchUserSettings() {
-        // Fetches user settings for chatbot customization
-        try {
-            const response = await fetchWithAuth(`${API_URL}/api/me`);
-            if (!response.ok) throw new Error("Could not fetch settings");
-            currentUserSettings = await response.json();
-        } catch (error) {
-            console.error("Failed to fetch user settings:", error);
-            // App can continue with default prompt
-        }
-    }
-
-    async function fetchAndRenderChatHistory() {
-        try {
-            const response = await fetchWithAuth(`${API_URL}/api/chats`);
-            if (!response.ok) throw new Error("Failed to fetch chat list");
-            
-            chatHistoryCache = await response.json();
-            renderChatHistory();
-
-            const lastChatId = localStorage.getItem("currentChatId_ClassMate");
-            const chatExists = chatHistoryCache.some(chat => chat.id === lastChatId);
-
-            if (chatExists) {
-                await switchChat(lastChatId);
-            } else if (chatHistoryCache.length > 0) {
-                // Sort by date and switch to the most recent one
-                const mostRecentChat = chatHistoryCache.sort((a, b) => new Date(b.lastActivityTimestamp) - new Date(a.lastActivityTimestamp))[0];
-                await switchChat(mostRecentChat.id);
-            } else {
-                await startNewChat(); // Create a new chat if none exist
-            }
-        } catch (error) {
-            console.error("Error loading chat history:", error);
-            showToast("Could not load chat history.", "error");
-        }
-    }
-
-    function renderChatHistory(filterTerm = "") {
-        chatHistoryList.innerHTML = ""; 
-        const searchTerm = filterTerm.toLowerCase().trim();
-        
-        const filteredChats = chatHistoryCache.filter(chat => 
-            (chat.title || `Chat`).toLowerCase().includes(searchTerm)
-        ).sort((a, b) => new Date(b.lastActivityTimestamp) - new Date(a.lastActivityTimestamp));
-
-        filteredChats.forEach(chat => {
-            const li = document.createElement("li");
-            li.dataset.chatId = chat.id;
-            li.classList.toggle("active", chat.id === currentChatId);
-            li.innerHTML = `<span class="chat-item-title">${chat.title}</span>`; // Simplified for brevity
-            li.addEventListener("click", () => switchChat(chat.id));
-            chatHistoryList.appendChild(li);
-        });
-    }
-
-    async function switchChat(chatId) {
-        if (!chatId || messageBeingSent) return;
-        currentChatId = chatId;
-        localStorage.setItem("currentChatId_ClassMate", chatId);
-        
-        chatContainer.innerHTML = '<div class="spinner-container" style="text-align:center; padding: 2rem;"><div class="spinner"></div></div>'; // Loading indicator
-        renderChatHistory(); // Update active highlight in sidebar
-
-        try {
-            const response = await fetchWithAuth(`${API_URL}/api/chats/${chatId}`);
-            if (!response.ok) throw new Error("Failed to load chat");
-            const fullChat = await response.json();
-            
-            chatContainer.innerHTML = "";
-            (fullChat.messages || []).forEach(msg => addMessageToUI(msg.sender, msg.content));
+        if (switchToNew) {
+            currentChatId = newChatId;
+            localStorage.setItem("currentChatId_ClassMate", currentChatId);
+            chatContainer.innerHTML = ""; 
             userInput.value = "";
-            userInput.dispatchEvent(new Event("input"));
-        } catch (error) {
-            console.error(`Error switching to chat ${chatId}:`, error);
-            showToast("Could not load selected chat.", "error");
+            userInput.dispatchEvent(new Event("input")); 
+            sendButton.disabled = true;
+            if (isToDoListModeActive) {
+                isToDoListModeActive = false;
+                todoListOption.classList.remove("active");
+                userInput.placeholder = "Ask ClassMate";
+            }
         }
-    }
-
-    async function startNewChat() {
-        try {
-            const response = await fetchWithAuth(`${API_URL}/api/chats`, { method: 'POST' });
-            if (!response.ok) throw new Error("Failed to create new chat");
-            const newChat = await response.json();
-            
-            await fetchAndRenderChatHistory(); // Refreshes sidebar with the new chat
-            await switchChat(newChat.id); // Loads the new empty chat
-            
-            if (isMobileView()) toggleSidebar();
-        } catch (error) {
-            console.error("Error starting new chat:", error);
-            showToast("Could not start a new chat.", "error");
+        saveChats();
+        renderChatHistory();
+        if (switchToNew) {
+             const newLi = chatHistoryList.querySelector(`[data-chat-id="${newChatId}"]`);
+             if (newLi) {
+                 document.querySelectorAll("#chat-history-list li.active").forEach(el => el.classList.remove("active"));
+                 newLi.classList.add("active");
+             }
         }
+        console.log("Started new chat:", newChatId);
     }
-
-    async function saveMessage(sender, content) {
-        if (!currentChatId) {
-            console.error("Cannot save message, no active chat selected.");
+    
+    function switchChat(chatId) {
+        if (!allChats[chatId]) {
+            console.error("Chat ID not found:", chatId);
+            if (Object.keys(allChats).length > 0) {
+                switchChat(Object.keys(allChats)[0]);
+            } else {
+                startNewChat();
+            }
             return;
         }
-        try {
-            await fetchWithAuth(`${API_URL}/api/chats/${currentChatId}/messages`, {
-                method: 'POST',
-                body: JSON.stringify({ sender, content })
-            });
-            // Also update the timestamp in the local cache for immediate UI feedback
-            const chatInCache = chatHistoryCache.find(c => c.id === currentChatId);
-            if (chatInCache) {
-                chatInCache.lastActivityTimestamp = new Date().toISOString();
-                renderChatHistory(); // Re-render to sort by new timestamp
-            }
-        } catch (error) {
-            console.error("Error saving message:", error);
+        currentChatId = chatId;
+        localStorage.setItem("currentChatId_ClassMate", currentChatId);
+        chatContainer.innerHTML = ""; 
+        allChats[currentChatId].messages.forEach(msg => addMessageToUI(msg.sender, msg.content));
+        renderChatHistory(); 
+        userInput.value = "";
+        userInput.dispatchEvent(new Event("input")); 
+        sendButton.disabled = true;
+        if (isToDoListModeActive) {
+            isToDoListModeActive = false;
+            todoListOption.classList.remove("active");
+            userInput.placeholder = "Ask ClassMate";
         }
+        console.log("Switched to chat:", currentChatId);
+    }
+
+    function renameChat(chatId) {
+    chatToRename = chatId;
+    const chat = allChats[chatId];
+    const dialog = document.getElementById('rename-dialog');
+    const input = document.getElementById('rename-input');
+    
+    input.value = chat.title || `Chat ${chatId.substring(0, 4)}`;
+    dialog.classList.add('show');
+    
+    setTimeout(() => {
+        input.focus();
+        input.select();
+    }, 100);
+}
+
+function deleteChat(chatId) {
+    chatToDelete = chatId;
+    const chat = allChats[chatId];
+    const dialog = document.getElementById('delete-dialog');
+    const textElement = document.getElementById('delete-confirm-text');
+    
+    textElement.textContent = `Are you sure you want to delete "${chat.title || 'this chat permanently'}"?`;
+    dialog.classList.add('show');
+}
+
+document.getElementById('rename-cancel-btn').addEventListener('click', () => {
+    document.getElementById('rename-dialog').classList.remove('show');
+    chatToRename = null;
+});
+
+document.getElementById('rename-confirm-btn').addEventListener('click', () => {
+    const newTitle = document.getElementById('rename-input').value.trim();
+    if (newTitle && chatToRename && allChats[chatToRename]) {
+        allChats[chatToRename].title = newTitle;
+        saveChats();
+        renderChatHistory();
+    }
+    document.getElementById('rename-dialog').classList.remove('show');
+    chatToRename = null;
+});
+
+document.getElementById('delete-cancel-btn').addEventListener('click', () => {
+    document.getElementById('delete-dialog').classList.remove('show');
+    chatToDelete = null;
+});
+
+document.getElementById('delete-confirm-btn').addEventListener('click', () => {
+    if (chatToDelete && allChats[chatToDelete]) {
+        delete allChats[chatToDelete];
+        saveChats();
+        
+        if (currentChatId === chatToDelete) {
+            const remainingChatIds = Object.keys(allChats);
+            if (remainingChatIds.length > 0) {
+                switchChat(remainingChatIds[0]);
+            } else {
+                startNewChat();
+            }
+        } else {
+            renderChatHistory();
+        }
+    }
+    document.getElementById('delete-dialog').classList.remove('show');
+    chatToDelete = null;
+});
+
+document.getElementById('rename-input').addEventListener('keypress', (e) => {
+    if (e.key === 'Enter') {
+        document.getElementById('rename-confirm-btn').click();
+    }
+});
+
+document.querySelectorAll('.dialog-modal').forEach(dialog => {
+    dialog.addEventListener('click', (e) => {
+        if (e.target === dialog) {
+            dialog.classList.remove('show');
+            chatToRename = null;
+            chatToDelete = null;
+        }
+    });
+});
+
+    newChatBtn.addEventListener("click", () => {
+        startNewChat();
+        if (isMobileView() && sidebar.classList.contains("open")) {
+            toggleSidebar();
+        }
+    });
+
+    function addMessageToUI(sender, content) {
+        const chat = allChats[currentChatId];
+        if (chat) {
+            if (sender === "user" && (!chat.title || chat.title === "New Chat")) { 
+                const potentialTitle = content.trim().substring(0, 30);
+                chat.title = potentialTitle || chat.title; 
+            }
+            chat.lastActivityTimestamp = Date.now();
+            saveChats();
+            renderChatHistory(); 
+        } else {
+            console.error("Cannot add message: currentChatId not found in allChats");
+            return; 
+        }
+
+        const messageDiv = document.createElement("div");
+        messageDiv.classList.add("message", sender);
+
+        const contentDiv = document.createElement("div");
+        contentDiv.classList.add("chat-content");
+
+        if (sender === "bot") {
+            if (content.startsWith("<div class=\"todo-list-container\">")) {
+                contentDiv.innerHTML = content;
+                container = contentDiv.querySelector(".todo-list-container")
+                
+                const label = document.createElement("span");
+                label.classList.add("todo-list-label");
+                label.textContent = "To-Do List";
+                container.insertBefore(label,container.firstChild); 
+            } else {
+                contentDiv.innerHTML = marked.parse(content);
+            }
+            
+            contentDiv.querySelectorAll("pre code").forEach((block) => {
+                hljs.highlightElement(block);
+                const preElement = block.parentNode;
+                if (preElement.tagName === "PRE") {
+                    const copyBtnContainer = document.createElement("div");
+                    copyBtnContainer.classList.add("code-copy-btn-container");
+                    
+                    const copyButton = document.createElement("button");
+                    copyButton.innerHTML = "<i class=\"far fa-copy\"></i> Copy";
+                    copyButton.classList.add("input-button"); 
+                    copyButton.style.fontSize = "0.8em";
+                    copyButton.style.padding = "4px 8px";
+                    copyButton.style.backgroundColor = "rgba(255,255,255,0.1)";
+                    copyButton.style.border = "1px solid rgba(255,255,255,0.2)";
+                    copyButton.style.color = "#ccc";
+                    copyButton.onclick = () => {
+                        navigator.clipboard.writeText(block.textContent).then(() => {
+                            copyButton.innerHTML = "<i class=\"fas fa-check\"></i> Copied!";
+                            setTimeout(() => { copyButton.innerHTML = "<i class=\"far fa-copy\"></i> Copy"; }, 2000);
+                        }).catch(err => console.error("Copy failed", err));
+                    };
+                    copyBtnContainer.appendChild(copyButton);
+                    preElement.appendChild(copyBtnContainer);
+                    preElement.style.position = "relative"; 
+                }
+            });
+            
+            const menuContainer = document.createElement("div");
+            menuContainer.classList.add("reply-menu-container");
+
+            const menuBtn = document.createElement("button");
+            menuBtn.classList.add("reply-menu-btn");
+            menuBtn.innerHTML = "<i class=\"fas fa-ellipsis-v\"></i>"; 
+            menuBtn.title = "More Actions";
+            menuContainer.appendChild(menuBtn);
+
+            const dropdown = document.createElement("div");
+            dropdown.classList.add("reply-menu-dropdown");
+
+            const copyItem = document.createElement("div");
+            copyItem.classList.add("reply-menu-item");
+            copyItem.innerHTML = "<i class=\"far fa-copy\"></i> Copy Text";
+            copyItem.addEventListener("click", (e) => {
+                e.stopPropagation();
+                navigator.clipboard.writeText(contentDiv.innerText).then(() => {
+                    showToast("Copied to clipboard!");
+                }).catch(err => console.error("Copy failed", err));
+                dropdown.classList.remove("show");
+            });
+            dropdown.appendChild(copyItem);
+
+            const saveNoteItem = document.createElement("div");
+            saveNoteItem.classList.add("reply-menu-item");
+            saveNoteItem.innerHTML = "<i class=\"far fa-sticky-note\"></i> Save as Note";
+            saveNoteItem.addEventListener("click", (e) => {
+                e.stopPropagation();
+                let noteTitle = "Chat Reply";
+                const messages = allChats[currentChatId]?.messages || [];
+                const botMessageIndex = messages.length - 1; 
+                if (botMessageIndex > 0 && messages[botMessageIndex - 1]?.sender === "user") {
+                    noteTitle = messages[botMessageIndex - 1].content.substring(0, 50) || "Chat Reply";
+                }
+                saveToNotes(noteTitle, contentDiv.innerText); 
+                dropdown.classList.remove("show");
+            });
+            dropdown.appendChild(saveNoteItem);
+
+            const saveTodoItem = document.createElement("div");
+            saveTodoItem.classList.add("reply-menu-item");
+            saveTodoItem.innerHTML = "<i class=\"fas fa-list-check\"></i> Save To-Do List";
+            saveTodoItem.style.display = "none"; 
+            
+            if (isToDoListFormat(contentDiv.innerText)) { 
+                saveTodoItem.style.display = "flex"; 
+            }
+            
+            saveTodoItem.addEventListener("click", (e) => {
+                e.stopPropagation();
+                saveToTaskMaster(contentDiv.querySelector(".todo-list-content").innerText); 
+                dropdown.classList.remove("show");
+            });
+            dropdown.appendChild(saveTodoItem);
+
+            menuContainer.appendChild(dropdown);
+            messageDiv.appendChild(menuContainer);
+
+            menuBtn.addEventListener("click", (e) => {
+                e.stopPropagation();
+                document.querySelectorAll(".reply-menu-dropdown.show").forEach(m => {
+                    if (m !== dropdown) m.classList.remove("show");
+                });
+                dropdown.classList.toggle("show");
+            });
+
+        } else {
+            contentDiv.textContent = content;
+        }
+
+        messageDiv.appendChild(contentDiv);
+        chatContainer.appendChild(messageDiv);
+        chatContainer.scrollTop = chatContainer.scrollHeight; 
+    }
+    
+    function saveMessage(sender, content) {
+        if (!currentChatId || !allChats[currentChatId]) {
+            console.error("Cannot save message, no active chat selected.");
+            if (Object.keys(allChats).length === 0) {
+                startNewChat();
+            } else if (!currentChatId) {
+                switchChat(Object.keys(allChats)[0]);
+            } else if (!allChats[currentChatId]) { 
+                 console.error(`Current chat ID ${currentChatId} is invalid.`);
+                 switchChat(Object.keys(allChats)[0]); 
+            }
+            // After potential recovery, try saving again if chat is now valid
+            if (currentChatId && allChats[currentChatId]) {
+                 allChats[currentChatId].messages.push({ sender, content });
+                 saveChats();
+            } else {
+                 console.error("Failed to save message even after recovery attempt.");
+            }
+            return; 
+        }
+        allChats[currentChatId].messages.push({ sender, content });
+        saveChats();
     }
 
     async function sendMessage() {
         const messageText = userInput.value.trim();
         if (!messageText || messageBeingSent) return;
-        if (!currentChatId) {
-            await startNewChat();
+
+        if (!currentChatId || !allChats[currentChatId]) {
+            console.error("sendMessage: No active chat session.");
+            addMessageToUI("bot", "Error: No active chat. Please start a new chat.");
+            saveMessage("bot", "Error: No active chat. Please start a new chat.");
+            return;
         }
 
         messageBeingSent = true; 
         sendButton.disabled = true;
         loadingIndicator.style.display = "flex";
+        userInput.value = "";
+        userInput.dispatchEvent(new Event("input")); 
+        userInput.placeholder = "ClassMate is thinking...";
         userInput.disabled = true;
 
         addMessageToUI("user", messageText);
-        await saveMessage("user", messageText); 
+        saveMessage("user", messageText); 
 
-        // Update title if it's the first message
-        const chatInCache = chatHistoryCache.find(c => c.id === currentChatId);
-        if (chatInCache && chatInCache.title === "New Chat") {
-             const newTitle = messageText.substring(0, 30);
-             chatInCache.title = newTitle; // optimistically update UI
-             renderChatHistory();
-             await fetchWithAuth(`${API_URL}/api/chats/${currentChatId}`, {
-                 method: 'PUT',
-                 body: JSON.stringify({ title: newTitle })
-             });
-        }
-        
-        userInput.value = "";
-        userInput.dispatchEvent(new Event("input")); 
-
-        // Construct prompt for AI
-        // This part remains the same as it builds the prompt dynamically
+        // --- DYNAMIC PROMPT CONSTRUCTION ---
         let basePromptForAPI = isToDoListModeActive ? todoListPrompt : defaultPromptBase;
-        // (The logic for adding user customization from `currentUserSettings` remains here)
+
+        if (currentUserSettings && currentUserSettings.chatbot_customization_enabled && !isToDoListModeActive) {
+            let customizationInstructions = "\n\n--- USER CUSTOMIZATION ---\n";
+            if (currentUserSettings.chatbot_nickname) {
+                customizationInstructions += `The user prefers to be called "${currentUserSettings.chatbot_nickname}". Please address them by this name.\n`;
+            } else {
+                customizationInstructions += "Address the user generally (e.g., 'User', or based on conversation context if no specific name preference is set).\n";
+            }
+
+            switch (currentUserSettings.chatbot_tone) {
+                case "professional_concise":
+                    customizationInstructions += "Adopt a professional and concise tone in your responses.\n";
+                    break;
+                case "humorous_witty":
+                    customizationInstructions += "Adopt a humorous and witty tone. Be creative and engaging, but remain helpful and on-topic.\n";
+                    break;
+                case "custom":
+                    if (!currentUserSettings.chatbot_custom_instructions) {
+                         customizationInstructions += "Maintain a friendly and supportive tone (default for custom with no specific instructions).\n";
+                    }
+                    // If custom_instructions exist, they will be added below and might dictate the tone.
+                    break;
+                default: // friendly_supportive or any other/undefined value
+                    customizationInstructions += "Maintain a friendly and supportive tone.\n";
+            }
+
+            if (currentUserSettings.chatbot_custom_instructions) {
+                customizationInstructions += `Adhere to the following user-provided guidelines for your responses: (dont cross ethics) "${currentUserSettings.chatbot_custom_instructions}"\n`;
+            }
+
+            if (currentUserSettings.chatbot_user_context) {
+                customizationInstructions += `Keep this user-specific context in mind: "${currentUserSettings.chatbot_user_context}"\n`;
+            }
+            customizationInstructions += "--- END USER CUSTOMIZATION ---\n";
+            basePromptForAPI += customizationInstructions;
+        }
+        // --- END DYNAMIC PROMPT CONSTRUCTION ---
+
+        const currentMessages = allChats[currentChatId]?.messages || [];
+        const historySlice = currentMessages.slice(-10); // Send last 10 messages (5 turns approx)
+        const conversationHistoryForAPI = historySlice
+            .map(msg => `${msg.sender === "user" ? "User" : "AI"}: ${msg.content}`)
+            .join("\n");
+
+        let finalPrompt;
+        if (isToDoListModeActive) {
+            finalPrompt = basePromptForAPI + "\n\nConversation History (leading to To-Do request):\n" + conversationHistoryForAPI;
+            // The user's latest message is already part of conversationHistoryForAPI as it's added before this function call.
+            // If needed, it could be explicitly added: finalPrompt += "\n\nUser's latest message for To-Do: " + messageText;
+        } else {
+            finalPrompt = basePromptForAPI + "\n\nConversation History:\n" + conversationHistoryForAPI;
+        }
 
         try {
-            const response = await fetch(`${API_URL}/api/chat`, { 
+            const response = await fetch(`${serverUrl}/api/chat`, { 
                 method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ prompt: messageText }), // Simplified for this example
+                headers: {
+                    "Content-Type": "application/json",
+                },
+                body: JSON.stringify({ prompt: finalPrompt }), 
             });
 
-            if (!response.ok) throw new Error("AI service error");
+            if (!response.ok) {
+                const errorText = await response.text();
+                throw new Error(`HTTP error! status: ${response.status}, message: ${errorText}`);
+            }
 
             const data = await response.json();
-            const botResponse = data.reply || "Sorry, I couldn't process that.";
-            
-            addMessageToUI("bot", botResponse);
-            await saveMessage("bot", botResponse);
+            let botResponse = data.reply || "Sorry, I couldn\\'t process that.";            
+            if (isToDoListModeActive && botResponse.includes("Goal:") && botResponse.includes("Phase")) { 
+                const todoContainer = document.createElement("div");
+                todoContainer.classList.add("todo-list-container");
+                
+                const contentWrapper = document.createElement("div");
+                contentWrapper.classList.add("todo-list-content");
+                contentWrapper.innerHTML = marked.parse(botResponse); 
+                todoContainer.appendChild(contentWrapper);
+                
+                addMessageToUI("bot", todoContainer.outerHTML);
+                saveMessage("bot", todoContainer.outerHTML); 
+
+            } else {
+                addMessageToUI("bot", botResponse);
+                saveMessage("bot", botResponse);
+            }
+
+            if (allChats[currentChatId] && allChats[currentChatId].messages.length === 2 && allChats[currentChatId].title === "New Chat") { 
+                const potentialTitle = messageText.substring(0, 30); 
+                allChats[currentChatId].title = potentialTitle || "Chat"; 
+                saveChats();
+                renderChatHistory(); 
+            }
 
         } catch (error) {
             console.error("Error sending message:", error);
-            const errorMsg = `Sorry, there was an error connecting to the assistant.`;
+            const errorMsg = `Sorry, there was an error connecting to the assistant. Please ensure you're connected to a network and try again. (Details: ${error.message})`;
             addMessageToUI("bot", errorMsg);
-            await saveMessage("bot", errorMsg);
+            saveMessage("bot", errorMsg);
         } finally {
             messageBeingSent = false; 
             userInput.disabled = false;
-            sendButton.disabled = false;
+            userInput.placeholder = isToDoListModeActive ? "Enter goal for To-Do List..." : "Ask ClassMate";
+            sendButton.disabled = userInput.value.trim() === ""; 
+            userInput.focus();
             loadingIndicator.style.display = "none"; 
         }
     }
 
-    // --- Save to Notes/Tasks Logic (Updated for API) ---
-    async function saveToNotes(title, content) {
-        const noteData = {
-            title: title.substring(0, 50) || "Untitled Note", 
-            content: content,
-            type: "text", 
-            pinned: false,
-            highlighted: false,
-            attachments: [],
-            listItems: []
+    sendButton.addEventListener("click", sendMessage);
+    userInput.addEventListener("keypress", (e) => {
+        if (e.key === "Enter" && !e.shiftKey) {
+            e.preventDefault(); 
+            sendMessage();
+        }
+    });
+
+    if ("webkitSpeechRecognition" in window) {
+        recognition = new webkitSpeechRecognition();
+        recognition.continuous = false;
+        recognition.lang = "en-US";
+        recognition.interimResults = false;
+        recognition.maxAlternatives = 1;
+
+        recognition.onresult = (event) => {
+            const transcript = event.results[0][0].transcript;
+            userInput.value = transcript;
+            userInput.dispatchEvent(new Event("input")); 
+            stopRecording();
         };
+
+        recognition.onerror = (event) => {
+            console.error("Speech recognition error:", event.error);
+            showToast(`Speech error: ${event.error}`);
+            stopRecording();
+        };
+
+        recognition.onend = () => {
+            if (isRecording) {
+                stopRecording(); 
+            }
+        };
+
+        micButton.addEventListener("click", () => {
+            if (isRecording) {
+                stopRecording();
+            } else {
+                startRecording();
+            }
+        });
+
+    } else {
+        micButton.disabled = true;
+        micButton.title = "Speech recognition not supported";
+        console.warn("Speech recognition not supported in this browser.");
+    }
+
+    function startRecording() {
+        if (!recognition || isRecording) return;
         try {
-            const response = await fetchWithAuth(`${API_URL}/api/notes`, {
-                method: 'POST',
-                body: JSON.stringify(noteData)
-            });
-            if (!response.ok) throw new Error("Failed to save note");
-            showToast("Saved to Notes!");
-        } catch (e) {
-            console.error("Failed to save note:", e);
-            showToast("Error saving note.", "error");
+            recognition.start();
+            isRecording = true;
+            micButton.classList.add("recording");
+            micButton.title = "Stop Recording";
+            showToast("Listening...");
+        } catch (error) {
+            console.error("Error starting recognition:", error);
+            showToast("Could not start microphone.");
+            isRecording = false; 
+            micButton.classList.remove("recording");
+            micButton.title = "Speak";
         }
     }
 
-    async function saveToTaskMaster(content) {
-        const taskData = [{
-            text: content,
-            pinned: false,
-            highlighted: false,
-            checkbox_states: {}
-        }];
+    function stopRecording() {
+        if (!recognition || !isRecording) return;
+        recognition.stop();
+        isRecording = false;
+        micButton.classList.remove("recording");
+        micButton.title = "Speak";
+    }
+
+    function showToast(message, type = 'normal', duration = 3000) {
+        toast.textContent = message;
+        toast.className = 'toast show'; // Reset classes
+        if (type === 'error') {
+            toast.classList.add('error');
+        }
+        // Add other types like 'success', 'warning' if needed
+        setTimeout(() => {
+            toast.classList.remove('show');
+        }, duration);
+    }
+
+
+    async function initializeApp() {
+        if(pageLoader) pageLoader.style.display = 'flex';
+        
+        applyThemeSynchronized(); // Apply theme early, page loader bg depends on it.
+        
+        await fetchUserSettings(); // Fetch settings before loading chats or other initializations
+
+        if(pageLoader) {
+            pageLoader.style.opacity = '0';
+            setTimeout(() => { pageLoader.style.display = 'none'; }, 300); // Hide after transition
+        }
+        
+        loadChats(); 
+        const savedState = localStorage.getItem("sidebarState_ClassMate");
+        const mobileView = isMobileView();
+
+        if (mobileView) {
+            sidebar.classList.remove("open");
+            sidebar.classList.remove("collapsed"); 
+            appContainer.classList.remove("sidebar-hidden");
+            sidebarOverlay.style.display = "none";
+        } else {
+            if (savedState === "open") {
+                sidebar.classList.remove("collapsed");
+                appContainer.classList.remove("sidebar-hidden");
+            } else { // Default to collapsed on desktop if no state or "collapsed"
+                sidebar.classList.add("collapsed");
+                appContainer.classList.add("sidebar-hidden");
+            }
+            sidebar.classList.remove("open"); 
+            sidebarOverlay.style.display = "none";
+        }
+        
+        updateToggleButtonVisibility(); 
+        userInput.dispatchEvent(new Event("input")); 
+        sendButton.disabled = true; 
+        isInitialLoad = false; 
+
+        checkForQueryParameters();
+    }
+
+
+    window.addEventListener("resize", () => {
+        clearTimeout(resizeTimeout);
+        resizeTimeout = setTimeout(() => {
+            if (!isInitialLoad) { 
+                const mobileView = isMobileView();
+                const isCurrentlyOpenMobile = sidebar.classList.contains("open");
+                const isCurrentlyCollapsedDesktop = sidebar.classList.contains("collapsed");
+
+                if (mobileView) {
+                    sidebar.classList.remove("collapsed"); 
+                    appContainer.classList.remove("sidebar-hidden");
+                    if (!isCurrentlyOpenMobile) {
+                        sidebar.classList.remove("open");
+                        sidebarOverlay.style.display = "none";
+                    } else {
+                         sidebarOverlay.style.display = "block"; 
+                    }
+                } else {
+                    sidebar.classList.remove("open"); 
+                    sidebarOverlay.style.display = "none";
+                    const savedState = localStorage.getItem("sidebarState_ClassMate");
+                    if (savedState === "collapsed" || isCurrentlyCollapsedDesktop) {
+                         sidebar.classList.add("collapsed");
+                         appContainer.classList.add("sidebar-hidden");
+                    } else {
+                         sidebar.classList.remove("collapsed");
+                         appContainer.classList.remove("sidebar-hidden");
+                    }
+                }
+                updateToggleButtonVisibility();
+            }
+        }, 250); 
+    });
+
+    initializeApp();
+
+    function isToDoListFormat(text) {
+        const goalPattern = /goal\s*:/i;
+        const hasGoal = goalPattern.test(text);
+        const phasePattern = /phase\s*\d+|phase\s*[a-z]+|step\s*\d+|part\s*\d+/i;
+        const hasPhase = phasePattern.test(text);
+        const taskPattern = /[-•*]\s+\w+|^\d+\.\s+\w+/m;
+        const hasTasks = taskPattern.test(text);
+        const structurePattern = /goal\s*:.*?(?:phase|step|part)\s*(?:\d+|[a-z]+)/is;
+        const hasStructure = structurePattern.test(text);
+        return hasGoal && (hasPhase || hasTasks) && hasStructure;
+    }
+
+    function saveToTaskMaster(content) {
         try {
-            const response = await fetchWithAuth(`${API_URL}/api/tasks`, {
-                method: 'POST',
-                body: JSON.stringify(taskData)
+            const tasks = JSON.parse(localStorage.getItem("tasks")) || [];
+            tasks.push({ 
+                text: content, 
+                pinned: false,
+                highlighted: false,
+                id: Date.now().toString() 
             });
-            if (!response.ok) throw new Error("Failed to save task");
+            localStorage.setItem("tasks", JSON.stringify(tasks));
             showToast("To-do list saved to Task Manager!");
         } catch (e) {
             console.error("Failed to save to Task Manager:", e);
@@ -1664,25 +2206,33 @@
         }
     }
 
-    // --- UI Helpers & Event Listeners (largely unchanged) ---
-    // (addMessageToUI, showToast, theme logic, sidebar toggles, etc. remain here)
-    // NOTE: The implementation of these functions from your original file should be kept.
-    // For brevity, I'm omitting functions that don't change, such as:
-    // addMessageToUI, showToast, applyThemeSynchronized, toggleSidebar,
-    // updateInputButtonState, mic/recording logic, etc.
-    
-    sendButton.addEventListener("click", sendMessage);
-    userInput.addEventListener("keypress", (e) => {
-        if (e.key === "Enter" && !e.shiftKey) {
-            e.preventDefault();
-            sendMessage();
+    function saveToNotes(title, content) {
+        try {
+            const note = { title: title.substring(0, 50) || "Untitled Note", content, type: "text" };
+            const response = await fetchWithAuth(`${API_URL}/api/notes`, {
+                method: 'POST',
+                body: JSON.stringify([note])
+            });
+            if (!response.ok) throw new Error("Failed to save note");
+            showToast("Saved to notes!");
+        } catch (e) {
+            console.error("Failed to save note:", e);
+            showToast("Error saving note.", "error");
         }
+    }
+
+    // Settings button functionality
+    document.getElementById('header-settings-btn').addEventListener('click', function() {
+      window.location.href = 'settings.html';
     });
-    newChatBtn.addEventListener("click", startNewChat);
 
-    // Initial load
-    initializeApp();
+    // Logout button functionality
+    // DELETE the line: document.getElementById('header-logout-btn').addEventListener('click', function() { ... });
+    // DELETE the entire function handleLogout() { ... }
+    // DELETE the entire function addLogoutButton() { ... }
+    // ... existing code ...
+
+    // Theme toggle functionality
 </script>
-
 </body>
 </html>
