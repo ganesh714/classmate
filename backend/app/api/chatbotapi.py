@@ -1,69 +1,136 @@
-from fastapi import APIRouter, Query
-from pydantic import BaseModel
-from dotenv import load_dotenv
-import os
-from google import genai
-import markdown2
+# app/api/chathistoryapi.py
+from fastapi import APIRouter, HTTPException, Depends, status
+from pydantic import BaseModel, Field
+from typing import List, Optional
+from bson import ObjectId
+from datetime import datetime
 
-# Load environment variables
-load_dotenv()
-
-# Setup Gemini Clients with two API keys
-api_key1 = os.getenv("GEMINI_API_KEY1")
-api_key2 = os.getenv("GEMINI_API_KEY2")
-
-# Use a simple try-except block to handle potential initialization errors gracefully
-try:
-    client1 = genai.Client(api_key=api_key1)
-except Exception as e:
-    print(f"Warning: Could not initialize Gemini client1. Error: {e}")
-    client1 = None
-
-try:
-    client2 = genai.Client(api_key=api_key2)
-except Exception as e:
-    print(f"Warning: Could not initialize Gemini client2. Error: {e}")
-    client2 = None
-
+from .userapi import get_current_user, db
 
 router = APIRouter()
+chats_collection = db["chats"]
 
-class ChatRequest(BaseModel):
-    prompt: str
+class Message(BaseModel):
+    sender: str
+    content: str
 
-async def generate_reply(prompt: str, client):
-    if not client:
-        raise Exception("Gemini client not initialized.")
-    response = client.models.generate_content(
-        model="gemini-2.0-flash", # Assuming this is the correct model name
-        contents=prompt
+class ChatInDB(BaseModel):
+    id: str = Field(alias="_id")
+    user_id: str
+    title: str
+    messages: List[Message] = []
+    lastActivityTimestamp: datetime
+
+    class Config:
+        populate_by_name = True
+        json_encoders = {ObjectId: str, datetime: lambda dt: dt.isoformat()}
+        from_attributes = True
+
+class ChatInfo(BaseModel):
+    id: str = Field(alias="_id")
+    title: str
+    lastActivityTimestamp: datetime
+
+    class Config:
+        populate_by_name = True
+        json_encoders = {ObjectId: str, datetime: lambda dt: dt.isoformat()}
+        from_attributes = True
+
+class ChatTitleUpdate(BaseModel):
+    title: str
+
+def _validate_and_convert(chat_doc):
+    """Helper to ensure a doc is found and its _id is converted to a string."""
+    if not chat_doc:
+        return None
+    chat_doc["_id"] = str(chat_doc["_id"])
+    return chat_doc
+
+@router.post("/api/chats", response_model=ChatInDB, status_code=status.HTTP_201_CREATED)
+async def create_chat(current_user: dict = Depends(get_current_user)):
+    chat_data = {
+        "user_id": str(current_user["_id"]),
+        "title": "New Chat",
+        "messages": [],
+        "lastActivityTimestamp": datetime.utcnow()
+    }
+    result = chats_collection.insert_one(chat_data)
+    new_chat = chats_collection.find_one({"_id": result.inserted_id})
+    
+    validated_chat = _validate_and_convert(new_chat)
+    if not validated_chat:
+        raise HTTPException(status_code=500, detail="Failed to create and retrieve chat.")
+    return ChatInDB.model_validate(validated_chat)
+
+@router.get("/api/chats", response_model=List[ChatInfo])
+async def get_all_chats(current_user: dict = Depends(get_current_user)):
+    user_id = str(current_user["_id"])
+    chats = chats_collection.find({"user_id": user_id}, {"_id": 1, "title": 1, "lastActivityTimestamp": 1})
+    return [ChatInfo.model_validate(_validate_and_convert(chat)) for chat in chats]
+
+@router.get("/api/chats/{chat_id}", response_model=ChatInDB)
+async def get_chat(chat_id: str, current_user: dict = Depends(get_current_user)):
+    user_id = str(current_user["_id"])
+    if not ObjectId.is_valid(chat_id):
+        raise HTTPException(status_code=400, detail="Invalid chat ID")
+        
+    chat = chats_collection.find_one({"_id": ObjectId(chat_id), "user_id": user_id})
+    validated_chat = _validate_and_convert(chat)
+    if not validated_chat:
+        raise HTTPException(status_code=404, detail="Chat not found")
+    return ChatInDB.model_validate(validated_chat)
+
+@router.post("/api/chats/{chat_id}/messages", response_model=ChatInDB)
+async def add_message(chat_id: str, message: Message, current_user: dict = Depends(get_current_user)):
+    user_id = str(current_user["_id"])
+    if not ObjectId.is_valid(chat_id):
+        raise HTTPException(status_code=400, detail="Invalid chat ID")
+        
+    update_result = chats_collection.update_one(
+        {"_id": ObjectId(chat_id), "user_id": user_id},
+        {"$push": {"messages": message.model_dump()}, "$set": {"lastActivityTimestamp": datetime.utcnow()}}
     )
-    return response.text
+    if update_result.matched_count == 0:
+        raise HTTPException(status_code=404, detail="Chat not found")
+        
+    updated_chat = chats_collection.find_one({"_id": ObjectId(chat_id)})
+    validated_chat = _validate_and_convert(updated_chat)
+    if not validated_chat:
+        raise HTTPException(status_code=404, detail="Chat not found after update.")
+    return ChatInDB.model_validate(validated_chat)
 
-@router.post("/api/chat")
-async def chat(req: ChatRequest, as_markdown: bool = Query(False)):
-    try:
-        reply_text = ""
-        # First try with client1
-        try:
-            if client1:
-                reply_text = await generate_reply(req.prompt, client1)
-            else:
-                raise Exception("Client1 not available")
-        except Exception as e1:
-            # If error (e.g., 503, client unavailable), switch to client2
-            print(f"Client1 failed with error: {e1}. Switching to Client2.")
-            try:
-                if client2:
-                    reply_text = await generate_reply(req.prompt, client2)
-                else:
-                     raise Exception("Client2 not available")
-            except Exception as e2:
-                print(f"Client2 also failed with error: {e2}.")
-                return {"reply": "Service is temporarily busy. Please try again later."}
+@router.put("/api/chats/{chat_id}", response_model=ChatInDB)
+async def update_chat_title(chat_id: str, title_update: ChatTitleUpdate, current_user: dict = Depends(get_current_user)):
+    user_id = str(current_user["_id"])
+    if not ObjectId.is_valid(chat_id):
+        raise HTTPException(status_code=400, detail="Invalid chat ID")
+    
+    update_result = chats_collection.update_one(
+        {"_id": ObjectId(chat_id), "user_id": user_id},
+        {"$set": {"title": title_update.title, "lastActivityTimestamp": datetime.utcnow()}}
+    )
+    if update_result.matched_count == 0:
+        raise HTTPException(status_code=404, detail="Chat not found")
 
-        if as_markdown:
-            reply_text = markdown2.markdown(reply_text)
-        return {"reply": reply_text}
-    except Exception as e:
-        return {"reply": f"An unexpected error occurred: {str(e)}"}
+    updated_chat = chats_collection.find_one({"_id": ObjectId(chat_id)})
+    validated_chat = _validate_and_convert(updated_chat)
+    if not validated_chat:
+        raise HTTPException(status_code=404, detail="Chat not found after update.")
+    return ChatInDB.model_validate(validated_chat)
+
+@router.delete("/api/chats/{chat_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_chat(chat_id: str, current_user: dict = Depends(get_current_user)):
+    user_id = str(current_user["_id"])
+    if not ObjectId.is_valid(chat_id):
+        raise HTTPException(status_code=400, detail="Invalid chat ID")
+        
+    delete_result = chats_collection.delete_one({"_id": ObjectId(chat_id), "user_id": user_id})
+    if delete_result.deleted_count == 0:
+        raise HTTPException(status_code=404, detail="Chat not found")
+    return
+
+@router.delete("/api/chats", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_all_chats(current_user: dict = Depends(get_current_user)):
+    user_id = str(current_user["_id"])
+    chats_collection.delete_many({"user_id": user_id})
+    return
