@@ -1694,6 +1694,60 @@ Remember to break your goals into phases and tasks.`;
     }
     });
 
+    async function saveChats() {
+        try {
+            for (const chatId in allChats) {
+                const chat = allChats[chatId];
+                await fetchWithAuth('/api/chats', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        chatId: chatId,
+                        title: chat.title,
+                        messages: chat.messages,
+                        timestamp: new Date(chat.lastActivityTimestamp).toISOString()
+                    })
+                });
+            }
+        } catch (e) {
+            console.error("Failed to sync chats to backend:", e);
+        }
+    }
+
+
+    async function loadChats() {
+        try {
+            const res = await fetchWithAuth('/api/chats');
+            const chats = await res.json();
+            allChats = {};
+
+            chats.forEach(chat => {
+                allChats[chat.chatId] = {
+                    title: chat.title || "New Chat",
+                    lastActivityTimestamp: new Date(chat.timestamp).getTime(),
+                    messages: chat.messages || []
+                };
+            });
+
+            if (Object.keys(allChats).length === 0) {
+                startNewChat(false);
+            }
+
+            const lastChatId = localStorage.getItem("currentChatId_ClassMate");
+            if (lastChatId && allChats[lastChatId]) {
+                switchChat(lastChatId);
+            } else {
+                switchChat(Object.keys(allChats)[0]);
+            }
+
+            renderChatHistory();
+        } catch (err) {
+            console.error("Failed to load chats from API", err);
+            showToast("Failed to load chats", "error");
+        }
+    }
+
+
     function renderChatHistory(filterTerm = "") {
         chatHistoryList.innerHTML = ""; 
         const searchTerm = filterTerm.toLowerCase().trim();
@@ -1809,208 +1863,157 @@ Remember to break your goals into phases and tasks.`;
         renderChatHistory(sidebarSearchInput.value);
     });
 
-    async function startNewChat(switchToNew = true) {
-        try {
-            const response = await fetchWithAuth(`${API_URL}/api/chats`, { method: 'POST' });
-            if (!response.ok) throw new Error("Failed to create chat");
-            const chat = await response.json();
-            allChats[chat.id || chat._id] = chat;
-            if (switchToNew) {
-                await switchChat(chat.id || chat._id);
-            }
-            renderChatHistory();
-        } catch (error) {
-            console.error(error);
-            showToast("Could not start new chat.");
+    function startNewChat(switchToNew = true) {
+        if (currentChatId && allChats[currentChatId] && allChats[currentChatId].messages.length === 0) {
+            // If current chat is new and empty, don't create another one, just stay
+             if (switchToNew) { // If called with switchToNew=true, it means user explicitly clicked "New Chat"
+                // Proceed to create a new one even if current is empty, but only if currentChatId is not null
+                 if(currentChatId === null) { /* no chat exists, so proceed */ }
+                 else { /* a chat exists, could be empty, but new chat was clicked */ }
+             } else { // if called with switchToNew=false (e.g. initial load, or after delete), don't create if current is empty
+                 return;
+             }
         }
-    }
-    
-    async function switchChat(chatId) {
-        try {
-            const response = await fetchWithAuth(`${API_URL}/api/chats/${chatId}`);
-            if (!response.ok) throw new Error("Failed to fetch chat");
-            const chat = await response.json();
-            currentChatId = chatId;
-            allChats[chatId] = chat;
-            chatContainer.innerHTML = "";
-            (chat.messages || []).forEach(msg => addMessageToUI(msg.sender, msg.content));
-            renderChatHistory();
+
+
+        const newChatId = `chat_${Date.now()}`;
+        allChats[newChatId] = {
+            title: "New Chat", 
+            lastActivityTimestamp: Date.now(),
+            messages: []
+        };
+        if (switchToNew) {
+            currentChatId = newChatId;
+            localStorage.setItem("currentChatId_ClassMate", currentChatId);
+            chatContainer.innerHTML = ""; 
             userInput.value = "";
-            userInput.dispatchEvent(new Event("input"));
+            userInput.dispatchEvent(new Event("input")); 
             sendButton.disabled = true;
             if (isToDoListModeActive) {
                 isToDoListModeActive = false;
                 todoListOption.classList.remove("active");
                 userInput.placeholder = "Ask ClassMate";
             }
-            console.log("Switched to chat:", chatId);
-        } catch (error) {
-            console.error(error);
-            showToast("Could not switch chat.");
         }
+        saveChats();
+        renderChatHistory();
+        if (switchToNew) {
+             const newLi = chatHistoryList.querySelector(`[data-chat-id="${newChatId}"]`);
+             if (newLi) {
+                 document.querySelectorAll("#chat-history-list li.active").forEach(el => el.classList.remove("active"));
+                 newLi.classList.add("active");
+             }
+        }
+        console.log("Started new chat:", newChatId);
+    }
+    
+    function switchChat(chatId) {
+        if (!allChats[chatId]) {
+            console.error("Chat ID not found:", chatId);
+            if (Object.keys(allChats).length > 0) {
+                switchChat(Object.keys(allChats)[0]);
+            } else {
+                startNewChat();
+            }
+            return;
+        }
+        currentChatId = chatId;
+        localStorage.setItem("currentChatId_ClassMate", currentChatId);
+        chatContainer.innerHTML = ""; 
+        allChats[currentChatId].messages.forEach(msg => addMessageToUI(msg.sender, msg.content));
+        renderChatHistory(); 
+        userInput.value = "";
+        userInput.dispatchEvent(new Event("input")); 
+        sendButton.disabled = true;
+        if (isToDoListModeActive) {
+            isToDoListModeActive = false;
+            todoListOption.classList.remove("active");
+            userInput.placeholder = "Ask ClassMate";
+        }
+        console.log("Switched to chat:", currentChatId);
     }
 
-    async function saveMessage(sender, content) {
-        if (!currentChatId) {
-            await startNewChat(true);
-        }
-        try {
-            const response = await fetchWithAuth(`${API_URL}/api/chats/${currentChatId}/messages`, {
-                method: 'POST',
-                body: JSON.stringify({ sender, content })
-            });
-            if (!response.ok) throw new Error("Failed to save message");
-            const chat = await response.json();
-            allChats[currentChatId] = chat;
+    function renameChat(chatId) {
+    chatToRename = chatId;
+    const chat = allChats[chatId];
+    const dialog = document.getElementById('rename-dialog');
+    const input = document.getElementById('rename-input');
+    
+    input.value = chat.title || `Chat ${chatId.substring(0, 4)}`;
+    dialog.classList.add('show');
+    
+    setTimeout(() => {
+        input.focus();
+        input.select();
+    }, 100);
+}
+
+function deleteChat(chatId) {
+    chatToDelete = chatId;
+    const chat = allChats[chatId];
+    const dialog = document.getElementById('delete-dialog');
+    const textElement = document.getElementById('delete-confirm-text');
+    
+    textElement.textContent = `Are you sure you want to delete "${chat.title || 'this chat permanently'}"?`;
+    dialog.classList.add('show');
+}
+
+document.getElementById('rename-cancel-btn').addEventListener('click', () => {
+    document.getElementById('rename-dialog').classList.remove('show');
+    chatToRename = null;
+});
+
+document.getElementById('rename-confirm-btn').addEventListener('click', () => {
+    const newTitle = document.getElementById('rename-input').value.trim();
+    if (newTitle && chatToRename && allChats[chatToRename]) {
+        allChats[chatToRename].title = newTitle;
+        saveChats();
+        renderChatHistory();
+    }
+    document.getElementById('rename-dialog').classList.remove('show');
+    chatToRename = null;
+});
+
+document.getElementById('delete-cancel-btn').addEventListener('click', () => {
+    document.getElementById('delete-dialog').classList.remove('show');
+    chatToDelete = null;
+});
+
+document.getElementById('delete-confirm-btn').addEventListener('click', () => {
+    if (chatToDelete && allChats[chatToDelete]) {
+        delete allChats[chatToDelete];
+        saveChats();
+        
+        if (currentChatId === chatToDelete) {
+            const remainingChatIds = Object.keys(allChats);
+            if (remainingChatIds.length > 0) {
+                switchChat(remainingChatIds[0]);
+            } else {
+                startNewChat();
+            }
+        } else {
             renderChatHistory();
-        } catch (error) {
-            console.error(error);
-            showToast("Could not save message.");
         }
     }
+    document.getElementById('delete-dialog').classList.remove('show');
+    chatToDelete = null;
+});
 
-    async function renameChat(chatId) {
-        chatToRename = chatId;
-        const chat = allChats[chatId];
-        const dialog = document.getElementById('rename-dialog');
-        const input = document.getElementById('rename-input');
-        
-        input.value = chat.title || `Chat ${chatId.substring(0, 4)}`;
-        dialog.classList.add('show');
-        
-        setTimeout(() => {
-            input.focus();
-            input.select();
-        }, 100);
+document.getElementById('rename-input').addEventListener('keypress', (e) => {
+    if (e.key === 'Enter') {
+        document.getElementById('rename-confirm-btn').click();
     }
+});
 
-    async function deleteChat(chatId) {
-        chatToDelete = chatId;
-        const chat = allChats[chatId];
-        const dialog = document.getElementById('delete-dialog');
-        const textElement = document.getElementById('delete-confirm-text');
-        
-        textElement.textContent = `Are you sure you want to delete "${chat.title || 'this chat permanently'}"?`;
-        dialog.classList.add('show');
-    }
-
-    document.getElementById('rename-cancel-btn').addEventListener('click', () => {
-        document.getElementById('rename-dialog').classList.remove('show');
-        chatToRename = null;
-    });
-
-    document.getElementById('rename-confirm-btn').addEventListener('click', async () => {
-        const newTitle = document.getElementById('rename-input').value.trim();
-        if (newTitle && chatToRename && allChats[chatToRename]) {
-            try {
-                const response = await fetchWithAuth(`${API_URL}/api/chats/${chatToRename}`, {
-                    method: 'PUT',
-                    body: JSON.stringify({ title: newTitle })
-                });
-                if (!response.ok) throw new Error("Failed to rename chat");
-                const chat = await response.json();
-                allChats[chatToRename] = chat;
-                renderChatHistory();
-            } catch (error) {
-                console.error(error);
-                showToast("Could not rename chat.");
-            }
-        }
-        document.getElementById('rename-dialog').classList.remove('show');
-        chatToRename = null;
-    });
-
-    document.getElementById('delete-cancel-btn').addEventListener('click', () => {
-        document.getElementById('delete-dialog').classList.remove('show');
-        chatToDelete = null;
-    });
-
-    document.getElementById('delete-confirm-btn').addEventListener('click', async () => {
-        if (chatToDelete && allChats[chatToDelete]) {
-            try {
-                const response = await fetchWithAuth(`${API_URL}/api/chats/${chatToDelete}`, { method: 'DELETE' });
-                if (!response.ok) throw new Error("Failed to delete chat");
-                delete allChats[chatToDelete];
-                const remainingChatIds = Object.keys(allChats);
-                if (remainingChatIds.length > 0) {
-                    await switchChat(remainingChatIds[0]);
-                } else {
-                    await startNewChat();
-                }
-                renderChatHistory();
-            } catch (error) {
-                console.error(error);
-                showToast("Could not delete chat.");
-            }
-        }
-        document.getElementById('delete-dialog').classList.remove('show');
-        chatToDelete = null;
-    });
-
-    document.getElementById('rename-input').addEventListener('keypress', (e) => {
-        if (e.key === 'Enter') {
-            document.getElementById('rename-confirm-btn').click();
+document.querySelectorAll('.dialog-modal').forEach(dialog => {
+    dialog.addEventListener('click', (e) => {
+        if (e.target === dialog) {
+            dialog.classList.remove('show');
+            chatToRename = null;
+            chatToDelete = null;
         }
     });
-
-    document.querySelectorAll('.dialog-modal').forEach(dialog => {
-        dialog.addEventListener('click', (e) => {
-            if (e.target === dialog) {
-                dialog.classList.remove('show');
-                chatToRename = null;
-                chatToDelete = null;
-            }
-        });
-    });
-
-    // --- Save as Note (API) ---
-    async function saveToNotes(title, content) {
-        try {
-            const noteData = {
-                title: title || "Chat Reply",
-                type: "text",
-                content: content,
-                listItems: [],
-                attachments: [],
-                pinned: false,
-                highlighted: false
-            };
-            const response = await fetchWithAuth(`${API_URL}/api/notes`, {
-                method: 'POST',
-                body: JSON.stringify(noteData)
-            });
-            if (!response.ok) throw new Error("Failed to save note");
-            showToast("Saved to notes!");
-        } catch (error) {
-            console.error(error);
-            showToast("Error saving note.");
-        }
-    }
-
-    // --- Save To-Do List (API) ---
-    async function saveToTaskMaster(content) {
-        try {
-            const taskData = {
-                text: content,
-                pinned: false,
-                highlighted: false,
-                checkbox_states: {}
-            };
-            const response = await fetchWithAuth(`${API_URL}/api/tasks`, {
-                method: 'POST',
-                body: JSON.stringify([taskData])
-            });
-            if (!response.ok) throw new Error("Failed to save to-do list");
-            showToast("To-do list saved to Task Manager!");
-        } catch (e) {
-            console.error("Failed to save to Task Manager:", e);
-            showToast("Error saving To-Do list.", "error");
-        }
-    }
-
-    // On load
-    loadChats();
-
+});
 
     newChatBtn.addEventListener("click", () => {
         startNewChat();
@@ -2027,6 +2030,7 @@ Remember to break your goals into phases and tasks.`;
                 chat.title = potentialTitle || chat.title; 
             }
             chat.lastActivityTimestamp = Date.now();
+            saveChats();
             renderChatHistory(); 
         } else {
             console.error("Cannot add message: currentChatId not found in allChats");
@@ -2155,6 +2159,30 @@ Remember to break your goals into phases and tasks.`;
         chatContainer.scrollTop = chatContainer.scrollHeight; 
     }
     
+    function saveMessage(sender, content) {
+        if (!currentChatId || !allChats[currentChatId]) {
+            console.error("Cannot save message, no active chat selected.");
+            if (Object.keys(allChats).length === 0) {
+                startNewChat();
+            } else if (!currentChatId) {
+                switchChat(Object.keys(allChats)[0]);
+            } else if (!allChats[currentChatId]) { 
+                 console.error(`Current chat ID ${currentChatId} is invalid.`);
+                 switchChat(Object.keys(allChats)[0]); 
+            }
+            // After potential recovery, try saving again if chat is now valid
+            if (currentChatId && allChats[currentChatId]) {
+                 allChats[currentChatId].messages.push({ sender, content });
+                 saveChats();
+            } else {
+                 console.error("Failed to save message even after recovery attempt.");
+            }
+            return; 
+        }
+        allChats[currentChatId].messages.push({ sender, content });
+        saveChats();
+    }
+
     async function sendMessage() {
         const messageText = userInput.value.trim();
         if (!messageText || messageBeingSent) return;
@@ -2268,6 +2296,7 @@ Remember to break your goals into phases and tasks.`;
             if (allChats[currentChatId] && allChats[currentChatId].messages.length === 2 && allChats[currentChatId].title === "New Chat") { 
                 const potentialTitle = messageText.substring(0, 30); 
                 allChats[currentChatId].title = potentialTitle || "Chat"; 
+                saveChats();
                 renderChatHistory(); 
             }
 
@@ -2384,6 +2413,7 @@ Remember to break your goals into phases and tasks.`;
             setTimeout(() => { pageLoader.style.display = 'none'; }, 300); // Hide after transition
         }
         
+        loadChats(); 
         const savedState = localStorage.getItem("sidebarState_ClassMate");
         const mobileView = isMobileView();
 
@@ -2460,6 +2490,51 @@ Remember to break your goals into phases and tasks.`;
         const hasStructure = structurePattern.test(text);
         return hasGoal && (hasPhase || hasTasks) && hasStructure;
     }
+
+    async function saveToTaskMaster(content) {
+        try {
+            const res = await fetchWithAuth('/api/tasks', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify([
+                    {
+                        text: content,
+                        pinned: false,
+                        highlighted: false,
+                        checkbox_states: {}
+                    }
+                ])
+            });
+            if (!res.ok) throw new Error(await res.text());
+            showToast("To-do list saved to Task Manager!");
+        } catch (e) {
+            console.error("Failed to save to Task Manager:", e);
+            showToast("Error saving To-Do list.", "error");
+        }
+    }
+
+
+    async function saveToNotes(title, content) {
+        try {
+            const res = await fetchWithAuth('/api/notes', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    title: title.substring(0, 50) || "Untitled Note",
+                    type: "text",
+                    content: content,
+                    pinned: false,
+                    highlighted: false
+                })
+            });
+            if (!res.ok) throw new Error(await res.text());
+            showToast("Saved to Notes!");
+        } catch (e) {
+            console.error("Failed to save note:", e);
+            showToast("Error saving note.", "error");
+        }
+    }
+
 
     // Settings button functionality
     document.getElementById('header-settings-btn').addEventListener('click', function() {
