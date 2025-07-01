@@ -1489,7 +1489,7 @@ Remember to break your goals into phases and tasks.`;
         'Authorization': `Bearer ${token}`,
         ...options.headers,
         };
-        const response = await fetch(url, { ...options, headers });
+        const response = await fetch(serverUrl + url, { ...options, headers });
         if (response.status === 401) {
         window.location.href = 'Login page.html';
         throw new Error("Session expired");
