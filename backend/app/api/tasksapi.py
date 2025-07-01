@@ -53,13 +53,13 @@ async def create_tasks(tasks: List[TaskCreate], current_user: dict = Depends(get
         
     result = tasks_collection.insert_many(new_tasks_data)
     created_tasks = tasks_collection.find({"_id": {"$in": result.inserted_ids}})
-    return [TaskInDB.model_validate(task) for task in created_tasks]
+    return [TaskInDB.model_validate({**task, "_id": str(task["_id"])}) for task in created_tasks]
 
 @router.get("/api/tasks", response_model=List[TaskInDB])
 async def get_tasks(current_user: dict = Depends(get_current_user)):
     user_id = str(current_user["_id"])
     user_tasks = tasks_collection.find({"user_id": user_id})
-    return [TaskInDB.model_validate(task) for task in user_tasks]
+    return [TaskInDB.model_validate({**task, "_id": str(task["_id"])}) for task in user_tasks]
 
 @router.put("/api/tasks/{task_id}", response_model=TaskInDB)
 async def update_task(task_id: str, task_update: TaskUpdate, current_user: dict = Depends(get_current_user)):
@@ -79,7 +79,7 @@ async def update_task(task_id: str, task_update: TaskUpdate, current_user: dict 
         raise HTTPException(status_code=404, detail="Task not found")
     
     updated_task = tasks_collection.find_one({"_id": ObjectId(task_id)})
-    return TaskInDB.model_validate(updated_task)
+    return TaskInDB.model_validate({**updated_task, "_id": str(updated_task["_id"])})
 
 @router.patch("/api/tasks/{task_id}/states", response_model=TaskInDB)
 async def update_task_states(task_id: str, state_update: CheckboxStateUpdate, current_user: dict = Depends(get_current_user)):
@@ -95,7 +95,7 @@ async def update_task_states(task_id: str, state_update: CheckboxStateUpdate, cu
         raise HTTPException(status_code=404, detail="Task not found")
         
     updated_task = tasks_collection.find_one({"_id": ObjectId(task_id)})
-    return TaskInDB.model_validate(updated_task)
+    return TaskInDB.model_validate({**updated_task, "_id": str(updated_task["_id"])})
 
 
 @router.delete("/api/tasks/{task_id}", status_code=status.HTTP_204_NO_CONTENT)
