@@ -1742,10 +1742,10 @@ Remember to break your goals into phases and tasks.`;
             allChats = {};
 
             chats.forEach(chat => {
-                allChats[chat.chatId] = {
+                allChats[chat.Id] = {
                     title: chat.title || "New Chat",
-                    lastActivityTimestamp: new Date(chat.timestamp).getTime(),
-                    messages: chat.messages || []
+                    lastActivityTimestamp: new Date(chat.lastActivityTimestamp).getTime(),
+                    messages: []
                 };
             });
 
