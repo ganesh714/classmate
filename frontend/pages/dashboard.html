@@ -1057,24 +1057,41 @@ body {
   }
 
   async function refreshData() {
-    dashboardData.activities = []; 
-    await loadData();
-    renderStats();
-    renderGoalCards();
-    renderActivityLog();
-    
-    const totalGoalsVal = dashboardData.goals.length;
-    const completedGoalsVal = dashboardData.goals.filter(g => g.totalTasks > 0 && g.completedTasks === g.totalTasks).length;
-    const totalTasksVal = dashboardData.goals.reduce((sum, goal) => sum + goal.totalTasks, 0);
-    const completedTasksVal = dashboardData.goals.reduce((sum, goal) => sum + goal.completedTasks, 0);
-    
-    if (goalChart) {
-        goalChart.data.datasets[0].data = [completedGoalsVal, totalGoalsVal - completedGoalsVal];
-        goalChart.update();
-    }
-    if (taskChart) {
-        taskChart.data.datasets[0].data = [completedTasksVal, totalTasksVal - completedTasksVal];
-        taskChart.update();
+    // Set loading state on the button
+    refreshBtn.disabled = true;
+    const icon = refreshBtn.querySelector('i');
+    const span = refreshBtn.querySelector('span');
+    icon.className = 'fas fa-spinner fa-spin';
+    if(span) span.textContent = 'Refreshing...';
+
+    try {
+        dashboardData.activities = []; 
+        await loadData();
+        renderStats();
+        renderGoalCards();
+        renderActivityLog();
+        
+        // Update charts
+        const totalGoalsVal = dashboardData.goals.length;
+        const completedGoalsVal = dashboardData.goals.filter(g => g.totalTasks > 0 && g.completedTasks === g.totalTasks).length;
+        const totalTasksVal = dashboardData.goals.reduce((sum, goal) => sum + goal.totalTasks, 0);
+        const completedTasksVal = dashboardData.goals.reduce((sum, goal) => sum + goal.completedTasks, 0);
+        
+        if (goalChart) {
+            goalChart.data.datasets[0].data = [completedGoalsVal, totalGoalsVal - completedGoalsVal];
+            goalChart.update();
+        }
+        if (taskChart) {
+            taskChart.data.datasets[0].data = [completedTasksVal, totalTasksVal - completedTasksVal];
+            taskChart.update();
+        }
+    } catch (error) {
+        console.error("Failed to refresh data:", error);
+    } finally {
+        // Reset button state
+        refreshBtn.disabled = false;
+        icon.className = 'fas fa-sync-alt';
+        if(span) span.textContent = 'Refresh Data';
     }
   }
 
