@@ -1752,26 +1752,34 @@ Phase 2:
     editModalOverlay.classList.remove('show');
     setTimeout(() => editModalOverlay.style.display = 'none', 300);
   });
+  
   editSaveBtn.addEventListener('click', async () => {
-    if (editingTaskIndex >= 0) {
-      try {
-        const task = tasks[editingTaskIndex];
-        const newText = editTaskText.value;
-        await fetchWithAuth(`${API_URL}/api/tasks/${task.id}`, {
-          method: 'PUT',
-          body: JSON.stringify({ text: newText })
-        });
-        await loadData();
-        if (modalOpenIndex === editingTaskIndex) {
-          renderModalPhases(editingTaskIndex);
-        }
-        editModalOverlay.classList.remove('show');
-        setTimeout(() => editModalOverlay.style.display = 'none', 300);
-        showToast("Task updated successfully!");
-      } catch (error) {
-        console.error(error);
-        showToast("Error updating task.");
+    if (editingTaskIndex < 0) return;
+
+    const originalButtonHTML = editSaveBtn.innerHTML;
+    editSaveBtn.disabled = true;
+    editSaveBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+    
+    try {
+      const task = tasks[editingTaskIndex];
+      const newText = editTaskText.value;
+      await fetchWithAuth(`${API_URL}/api/tasks/${task.id}`, {
+        method: 'PUT',
+        body: JSON.stringify({ text: newText })
+      });
+      await loadData();
+      if (modalOpenIndex === editingTaskIndex) {
+        renderModalPhases(editingTaskIndex);
       }
+      editModalOverlay.classList.remove('show');
+      setTimeout(() => editModalOverlay.style.display = 'none', 300);
+      showToast("Task updated successfully!");
+    } catch (error) {
+      console.error(error);
+      showToast("Error updating task.");
+    } finally {
+      editSaveBtn.disabled = false;
+      editSaveBtn.innerHTML = originalButtonHTML;
     }
   });
 
