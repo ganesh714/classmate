@@ -57,7 +57,7 @@ async def get_chat(chat_id: str, user_id: str):
         chat["_id"] = str(chat["_id"])
     return chat
 
-@router.post("api/chats", response_model=ChatInDB, status_code=status.HTTP_201_CREATED)
+@router.post("/api/chats", response_model=ChatInDB, status_code=status.HTTP_201_CREATED)
 async def create_chat(chat_data: ChatCreate, current_user: dict = Depends(get_current_user)):
     chat_data = {
         "user_id": str(current_user["_id"]),
@@ -70,7 +70,7 @@ async def create_chat(chat_data: ChatCreate, current_user: dict = Depends(get_cu
     new_chat = await get_chat(str(result.inserted_id), str(current_user["_id"]))
     return ChatInDB(**new_chat)
 
-@router.get("api/chats", response_model=List[ChatInfo])
+@router.get("/api/chats", response_model=List[ChatInfo])
 async def get_all_chats(current_user: dict = Depends(get_current_user)):
     user_id = str(current_user["_id"])
     chats = []
@@ -89,7 +89,7 @@ async def get_all_chats(current_user: dict = Depends(get_current_user)):
         })
     return chats
 
-@router.get("api/chats/{chat_id}", response_model=ChatInDB)
+@router.get("/api/chats/{chat_id}", response_model=ChatInDB)
 async def get_chat_by_id(chat_id: str, current_user: dict = Depends(get_current_user)):
     user_id = str(current_user["_id"])
     chat = await get_chat(chat_id, user_id)
@@ -97,7 +97,7 @@ async def get_chat_by_id(chat_id: str, current_user: dict = Depends(get_current_
         raise HTTPException(status_code=404, detail="Chat not found")
     return ChatInDB(**chat)
 
-@router.post("api/chats/{chat_id}/messages", response_model=ChatInDB)
+@router.post("/api/chats/{chat_id}/messages", response_model=ChatInDB)
 async def add_message(
     chat_id: str, 
     message: Message, 
@@ -124,7 +124,7 @@ async def add_message(
     updated_chat = await get_chat(chat_id, user_id)
     return ChatInDB(**updated_chat)
 
-@router.put("api/chats/{chat_id}", response_model=ChatInDB)
+@router.put("/api/chats/{chat_id}", response_model=ChatInDB)
 async def update_chat(
     chat_id: str, 
     chat_update: ChatUpdate, 
@@ -149,7 +149,7 @@ async def update_chat(
     updated_chat = await get_chat(chat_id, user_id)
     return ChatInDB(**updated_chat)
 
-@router.delete("api/chats/{chat_id}", status_code=status.HTTP_204_NO_CONTENT)
+@router.delete("/api/chats/{chat_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_chat(chat_id: str, current_user: dict = Depends(get_current_user)):
     user_id = str(current_user["_id"])
     if not ObjectId.is_valid(chat_id):
@@ -162,7 +162,7 @@ async def delete_chat(chat_id: str, current_user: dict = Depends(get_current_use
     if delete_result.deleted_count == 0:
         raise HTTPException(status_code=404, detail="Chat not found")
 
-@router.delete("api/chats", status_code=status.HTTP_204_NO_CONTENT)
+@router.delete("/api/chats", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_all_chats(current_user: dict = Depends(get_current_user)):
     user_id = str(current_user["_id"])
     await chats_collection.delete_many({"user_id": user_id})
