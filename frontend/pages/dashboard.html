@@ -4,6 +4,8 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Progress Dashboard</title>
+<!-- CORRECTED FONT AWESOME: Using CSS instead of JS for animations -->
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
 <style>
   /* Page Loader */
   #page-loader-dashboard {
@@ -688,8 +690,6 @@ body {
   </div>
 </div>
 
-<!-- Font Awesome for icons -->
-<script src="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/js/all.min.js"></script>
 <!-- Chart.js for visualizations -->
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
@@ -1061,6 +1061,7 @@ body {
     refreshBtn.disabled = true;
     const icon = refreshBtn.querySelector('i');
     const span = refreshBtn.querySelector('span');
+    const originalIconClass = icon.className;
     icon.className = 'fas fa-spinner fa-spin';
     if(span) span.textContent = 'Refreshing...';
 
@@ -1090,7 +1091,7 @@ body {
     } finally {
         // Reset button state
         refreshBtn.disabled = false;
-        icon.className = 'fas fa-sync-alt';
+        icon.className = originalIconClass; // Reset to original icon
         if(span) span.textContent = 'Refresh Data';
     }
   }
