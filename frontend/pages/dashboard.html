@@ -664,7 +664,33 @@ body {
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
 <script>
-  // Sample data - in a real app, this would come from your task manager's localStorage
+  // --- API & Auth Helpers ---
+  const API_URL = "https://classmate-juji.onrender.com";
+  
+  function getAuthToken() {
+    return localStorage.getItem('auth_token');
+  }
+
+  async function fetchWithAuth(url, options = {}) {
+    const token = getAuthToken();
+    if (!token) {
+      window.location.href = 'Login page.html';
+      throw new Error("User not authenticated");
+    }
+    const headers = {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${token}`,
+      ...options.headers,
+    };
+    const response = await fetch(url, { ...options, headers });
+    if (response.status === 401) {
+      window.location.href = 'Login page.html';
+      throw new Error("Session expired");
+    }
+    return response;
+  }
+
+  // Dashboard data structure
   let dashboardData = {
     goals: [],
     activities: [],
@@ -719,74 +745,109 @@ body {
     }
   });
 
-
-  // Load data from localStorage (from both task manager and notes app)
-  function loadData() {
-    const tasksData = JSON.parse(localStorage.getItem('tasks')) || [];
-    const checkboxStates = JSON.parse(localStorage.getItem('checkboxStates')) || {};
-    
-    dashboardData.goals = tasksData.map((task, taskArrayIndex) => { // Added taskArrayIndex
-      const goalTitle = task.text.split('\n')[0].trim().replace(/^Goal:\s*/, '');
-      const phases = task.text.split(/Phase\s*\d*:/i).slice(1);
-      let totalTasksInGoal = 0;
-      let completedTasksInGoal = 0;
+  // Load data from database instead of localStorage
+  async function loadData() {
+    try {
+      // Fetch tasks from database
+      const tasksResponse = await fetchWithAuth(`${API_URL}/api/tasks`);
+      if (!tasksResponse.ok) throw new Error("Failed to fetch tasks");
+      const tasksData = await tasksResponse.json();
       
-      phases.forEach((phaseBlock, phaseIndex) => {
-        const lines = phaseBlock.trim().split('\n').map(l => l.trim()).filter(Boolean);
-        if (lines.length <= 1) return;
+      // Fetch notes from database
+      const notesResponse = await fetchWithAuth(`${API_URL}/api/notes`);
+      if (!notesResponse.ok) throw new Error("Failed to fetch notes");
+      const notesData = await notesResponse.json();
+      
+      // Process tasks data
+      dashboardData.goals = tasksData.map((task, taskArrayIndex) => {
+        const goalTitle = task.text.split('\n')[0].trim().replace(/^Goal:\s*/, '');
+        const phases = task.text.split(/Phase\s*\d*:/i).slice(1);
+        let totalTasksInGoal = 0;
+        let completedTasksInGoal = 0;
         
-        const phaseTasks = lines.slice(1);
-        totalTasksInGoal += phaseTasks.length;
-        
-        phaseTasks.forEach((_, taskItemIndex) => {
-          // Use taskArrayIndex here for unique IDs across all goals if tasksData order is stable
-          const checkboxId = `task_${taskArrayIndex}_phase_${phaseIndex}_item_${taskItemIndex}`;
-          if (checkboxStates[checkboxId]) {
-            completedTasksInGoal++;
-          }
+        phases.forEach((phaseBlock, phaseIndex) => {
+          const lines = phaseBlock.trim().split('\n').map(l => l.trim()).filter(Boolean);
+          if (lines.length <= 1) return;
+          
+          const phaseTasks = lines.slice(1);
+          totalTasksInGoal += phaseTasks.length;
+          
+          phaseTasks.forEach((_, taskItemIndex) => {
+            const checkboxId = `task_${taskArrayIndex}_phase_${phaseIndex}_item_${taskItemIndex}`;
+            if (task.checkbox_states && task.checkbox_states[checkboxId]) {
+              completedTasksInGoal++;
+            }
+          });
         });
+        
+        return {
+          id: task.id || task._id,
+          title: goalTitle,
+          totalTasks: totalTasksInGoal,
+          completedTasks: completedTasksInGoal,
+          pinned: task.pinned || false,
+          highlighted: task.highlighted || false,
+          lastUpdated: task.updated_at || task.timestamp || new Date().toISOString()
+        };
       });
       
-      return {
-        id: 'goal-' + Math.random().toString(36).substr(2, 9), // Keep random ID for now
-        title: goalTitle,
-        totalTasks: totalTasksInGoal,
-        completedTasks: completedTasksInGoal,
-        pinned: task.pinned || false,
-        highlighted: task.highlighted || false,
-        lastUpdated: new Date().toISOString() // Placeholder
-      };
-    });
-    
-    const notesData = JSON.parse(localStorage.getItem('notes')) || [];
-    dashboardData.notes = notesData;
-    
-    if ((dashboardData.goals.length > 0 || dashboardData.notes.length > 0) && dashboardData.activities.length === 0) {
-      generateSampleActivity();
+      // Process notes data
+      dashboardData.notes = notesData.map(note => ({
+        ...note,
+        id: note.id || note._id,
+        timestamp: note.timestamp || note.created_at || new Date().toISOString()
+      }));
+      
+      // Generate activity data from database timestamps
+      await generateActivityFromDatabase();
+      
+    } catch (error) {
+      console.error('Error loading data:', error);
+      // Fallback to empty data
+      dashboardData = { goals: [], activities: [], notes: [] };
     }
   }
 
-  function generateSampleActivity() {
+  // Generate activity data using actual database timestamps
+  async function generateActivityFromDatabase() {
     const activities = [];
-    // Simplified sample generation
+    
+    // Add goal activities based on database timestamps
     dashboardData.goals.forEach(goal => {
       activities.push({
-        id: 'act-g-' + goal.id, action: 'created', item: 'goal', title: goal.title,
-        time: new Date(Date.now() - Math.random() * 7 * 24 * 60 * 60 * 1000).toISOString()
+        id: 'act-g-' + goal.id,
+        action: 'created',
+        item: 'goal',
+        title: goal.title,
+        time: goal.lastUpdated
       });
+      
       if (goal.completedTasks > 0) {
-         activities.push({
-            id: 'act-t-' + goal.id, action: 'completed', item: 'task', title: `Task in ${goal.title}`,
-            time: new Date(Date.now() - Math.random() * 3 * 24 * 60 * 60 * 1000).toISOString()
-         });
+        // Add a task completion activity slightly after goal creation
+        const taskCompletionTime = new Date(goal.lastUpdated);
+        taskCompletionTime.setHours(taskCompletionTime.getHours() + 1);
+        activities.push({
+          id: 'act-t-' + goal.id,
+          action: 'completed',
+          item: 'task',
+          title: `Task in ${goal.title}`,
+          time: taskCompletionTime.toISOString()
+        });
       }
     });
+    
+    // Add note activities based on database timestamps
     dashboardData.notes.forEach(note => {
       activities.push({
-        id: 'act-n-' + (note.id || Math.random().toString(36).substr(2,9)), action: 'created', item: 'note', title: note.title || 'Untitled Note',
-        time: new Date(note.timestamp || Date.now() - Math.random() * 2 * 24 * 60 * 60 * 1000).toISOString()
+        id: 'act-n-' + note.id,
+        action: 'created',
+        item: 'note',
+        title: note.title || 'Untitled Note',
+        time: note.timestamp
       });
     });
+    
+    // Sort activities by time (most recent first) and limit to 10
     activities.sort((a, b) => new Date(b.time) - new Date(a.time));
     dashboardData.activities = activities.slice(0, 10);
   }
@@ -975,10 +1036,10 @@ body {
     });
   }
 
-  function refreshData() {
-    // Clear existing activities before reloading data to avoid duplicates if generateSampleActivity runs again
+  async function refreshData() {
+    // Clear existing activities before reloading data to avoid duplicates
     dashboardData.activities = []; 
-    loadData();
+    await loadData();
     renderStats();
     renderGoalCards();
     renderActivityLog();
@@ -1018,3 +1079,4 @@ body {
 </script>
 </body>
 </html>
+
