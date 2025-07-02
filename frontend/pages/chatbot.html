@@ -1892,15 +1892,15 @@ const API_BASE_URL = 'https://classmate-juji.onrender.com'; // Update this to yo
 
 // Authentication token management
 function getAuthToken() {
-    return localStorage.getItem('authToken');
+    return localStorage.getItem('auth_token');
 }
 
 function setAuthToken(token) {
-    localStorage.setItem('authToken', token);
+    localStorage.setItem('auth_token', token);
 }
 
 function removeAuthToken() {
-    localStorage.removeItem('authToken');
+    localStorage.removeItem('auth_token');
 }
 
 // API helper function
