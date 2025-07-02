@@ -1370,6 +1370,7 @@
         </div>
     </div>
 </div>
+
 <script>
     const chatContainer = document.getElementById("chat-container");
     const userInput = document.getElementById("user-input");
@@ -1742,10 +1743,10 @@ Remember to break your goals into phases and tasks.`;
             allChats = {};
 
             chats.forEach(chat => {
-                allChats[chat.Id] = {
+                allChats[chat.id] = {
                     title: chat.title || "New Chat",
                     lastActivityTimestamp: new Date(chat.lastActivityTimestamp).getTime(),
-                    messages: []
+                    messages: [] // Loaded later via /api/chats/{id}
                 };
             });
 
@@ -1766,6 +1767,7 @@ Remember to break your goals into phases and tasks.`;
             showToast("Failed to load chats", "error");
         }
     }
+
 
 
     function renderChatHistory(filterTerm = "") {
@@ -2569,5 +2571,6 @@ document.querySelectorAll('.dialog-modal').forEach(dialog => {
 
     // Theme toggle functionality
 </script>
+
 </body>
 </html>
