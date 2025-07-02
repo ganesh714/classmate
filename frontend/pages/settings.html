@@ -197,6 +197,7 @@
     .theme-toggle-btn, #pageThemeToggle { display: none !important; }
     @media (max-width: 700px) {
       .theme-toggle-btn { display: flex; }
+      .panel-behavior-card { display: none !important; }
     }
 
     .settings-container {
@@ -775,7 +776,7 @@ body {
       </div>
       
       <!-- Expand Panel Behavior Settings -->
-      <div class="settings-card fade-in" style="animation-delay: 0.15s;">
+      <div class="settings-card fade-in panel-behavior-card" style="animation-delay: 0.15s;">
         <div class="settings-header">
           <div class="settings-header-main">
             <i class="fas fa-columns"></i>
@@ -947,99 +948,641 @@ body {
   <div id="toast" class="toast"></div>
 
   <script>
-    const serverUrl = "https://classmate-juji.onrender.com"; 
+    const serverUrl = "https://classmate1-ffw7.onrender.com"; 
     const pageLoader = document.getElementById('pageLoader'); 
 
     function getAuthToken() {
         return localStorage.getItem('auth_token');
     }
 
-    async function fetchWithAuth(url, options = {}) {
-        const token = getAuthToken();
-        if (!token) {
-            window.location.href = 'Login page.html';
-            throw new Error("User not authenticated");
-        }
-        const headers = {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${token}`,
-            ...options.headers,
-        };
-        const response = await fetch(url, { ...options, headers });
-        if (response.status === 401) {
-            localStorage.removeItem('auth_token');
-            window.location.href = 'Login page.html';
-            throw new Error("Session expired");
-        }
-        return response;
-    }
-
     if (!getAuthToken()) {
-        window.location.href = 'Login page.html'; 
+        if (window.parent && window.parent !== window) {
+            // If in an iframe and no token, tell parent to log out
+            window.parent.postMessage({ type: 'logout', reason: 'no_token_in_iframe' }, '*');
+        } else {
+            // If standalone page and no token, redirect directly
+            window.location.href = 'Login page.html'; 
+        }
     }
     
     document.addEventListener("DOMContentLoaded", () => {
-        // --- DOM Elements ---
-        const clearCurrentChatHistoryBtn = document.getElementById('clearCurrentChatHistoryBtn');
-        const clearAllChatHistoryBtn = document.getElementById('clearAllChatHistoryBtn');
-        const clearCurrentChatModal = document.getElementById('clearCurrentChatModal');
-        const clearAllChatModal = document.getElementById('clearAllChatModal');
-        // (Other DOM element declarations remain the same)
-        const toast = document.getElementById('toast');
-
-
-        // --- MODIFIED: Event Listeners for Chat History Deletion ---
-        clearCurrentChatHistoryBtn.addEventListener('click', () => {
-            showToast("Clearing current chat is not supported from Settings. Please delete individual chats from the Chatbot interface.", "info", 5000);
-            // NOTE: The logic for deleting the *current* chat is complex from the settings page
-            // as it doesn't know which chat is current. This action is best left in the chatbot UI.
-            // If you must have it here, you'd need to fetch the last used chat ID.
-            // For now, we disable it with an informative message.
-        });
-
-        clearAllChatHistoryBtn.addEventListener('click', () => showConfirmationModal(clearAllChatModal));
-
-        function showConfirmationModal(modalElement) {
-            modalElement.classList.add('show');
-            modalElement.querySelector('[data-action="cancel"]').onclick = () => modalElement.classList.remove('show');
-            const confirmBtn = modalElement.querySelector('[data-action="confirm"]');
-            
-            if (modalElement.id === 'clearAllChatModal') {
-                confirmBtn.onclick = async () => {
-                    try {
-                        const response = await fetchWithAuth(`${serverUrl}/api/chats`, { method: 'DELETE' });
-                        if (!response.ok) {
-                           throw new Error("Server responded with an error.");
-                        }
-                        showToast("All chat history has been deleted!", "warning");
-                    } catch (error) {
-                        console.error("Error clearing all chat history:", error);
-                        showToast("Failed to clear chat history.", "error");
-                    } finally {
-                         modalElement.classList.remove('show');
-                    }
-                };
-            } else if (modalElement.id === 'deleteAccountModal') {
-                // ... (delete account logic remains the same)
-            }
-        }
-        
-        function showToast(message, type = 'success', duration=3000) { 
-            toast.textContent = message;
-            toast.className = 'toast show'; 
-            if (type !== 'success') {
-              toast.classList.add(type);
-            }
-            setTimeout(() => {
-              toast.classList.remove('show');
-            }, duration);
-        }
+      // DOM Elements
+      const avatarPreview = document.getElementById('avatarPreview');
+      const avatarUpload = document.getElementById('avatarUpload');
+      const userNameInput = document.getElementById('userName');
+      const userEmailInput = document.getElementById('userEmail');
+      const userBioInput = document.getElementById('userBio');
+      const saveProfileBtn = document.getElementById('saveProfileBtn');
       
-        // (All other functions and event listeners from your original settings script remain here)
-        // For brevity, I am omitting the unchanged parts like loadUserSettings, saveAllSettings, theme logic, etc.
-        // The key change is in the event listeners above.
-    });
-</script>
+      const pageThemeToggle = document.getElementById('pageThemeToggle');
 
+      const chatbotCustomizationToggle = document.getElementById('chatbotCustomizationToggle');
+      const chatbotSettingsContent = document.getElementById('chatbotSettingsContent');
+      const userNicknameInput = document.getElementById('userNickname'); 
+      const chatbotToneSelect = document.getElementById('chatbotTone');
+      const chatbotCustomInstructionsTextarea = document.getElementById('chatbotCustomInstructions');
+      const chatbotUserContextTextarea = document.getElementById('chatbotUserContext'); 
+      const saveChatbotSettingsBtn = document.getElementById('saveChatbotSettingsBtn');
+      const clearCurrentChatHistoryBtn = document.getElementById('clearCurrentChatHistoryBtn');
+      const clearAllChatHistoryBtn = document.getElementById('clearAllChatHistoryBtn');
+
+      const changePasswordBtn = document.getElementById('changePasswordBtn');
+      const deleteAccountBtn = document.getElementById('deleteAccountBtn'); 
+      const logoutBtn = document.getElementById('logoutBtn');
+
+      const toast = document.getElementById('toast');
+
+      const clearCurrentChatModal = document.getElementById('clearCurrentChatModal');
+      const clearAllChatModal = document.getElementById('clearAllChatModal');
+      const deleteAccountModal = document.getElementById('deleteAccountModal');
+      const deleteAccountConfirmText = document.getElementById('deleteAccountConfirmText');
+      const finalDeleteAccountBtn = document.getElementById('finalDeleteAccountBtn');
+
+      // --- Chatbot Customization Master Toggle Logic ---
+      function setChatbotCustomizationVisualState(enabled) {
+        chatbotCustomizationToggle.classList.toggle('active', enabled);
+        chatbotSettingsContent.classList.toggle('deactivated', !enabled);
+        
+        // Only apply visual de-emphasis, don't disable form controls
+        // Users can edit even when toggle is off
+      }
+
+      // Load saved toggle state
+      function loadChatbotCustomizationState() {
+        const savedState = localStorage.getItem('chatbotCustomizationEnabled') === 'true';
+        setChatbotCustomizationVisualState(savedState);
+      }
+      loadChatbotCustomizationState();
+
+      chatbotCustomizationToggle.addEventListener('click', (e) => {
+        e.stopPropagation(); // Prevent header collapse when clicking toggle
+        const isActive = chatbotCustomizationToggle.classList.toggle('active');
+        setChatbotCustomizationVisualState(isActive);
+        localStorage.setItem('chatbotCustomizationEnabled', isActive);
+      });
+
+
+      // --- THEME SYNCHRONIZATION LOGIC ---
+      function applyThemeSynchronized() {
+          const parentDarkModeSetting = localStorage.getItem("darkMode") || localStorage.getItem("theme");
+          const isNowDark = parentDarkModeSetting === "enabled" || parentDarkModeSetting === "dark";
+          document.body.classList.toggle("dark-mode", isNowDark);
+          
+          if (pageThemeToggle) { 
+            const sunIcon = pageThemeToggle.querySelector('.fa-sun');
+            const moonIcon = pageThemeToggle.querySelector('.fa-moon');
+            if (sunIcon && moonIcon) { 
+                sunIcon.style.display = isNowDark ? 'block' : 'none'; 
+                moonIcon.style.display = isNowDark ? 'none' : 'block'; 
+            }
+          }
+      }
+      applyThemeSynchronized(); 
+
+      window.addEventListener('storage', (e) => { // Listens for changes from other tabs/windows
+          if (e.key === 'darkMode' || e.key === 'theme') {
+              applyThemeSynchronized();
+          }
+           if (e.key === 'auth_token' && !e.newValue) { // Token removed
+                if (window.parent && window.parent !== window) {
+                    window.parent.postMessage({ type: 'logout', reason: 'token_cleared_externally' }, '*');
+                } else {
+                    window.location.href = 'Login page.html';
+                }
+            }
+      });
+
+      // Listen for theme changes dispatched from parent (home.html)
+      window.addEventListener('themeChange', (e) => { 
+          if (e.detail && typeof e.detail.darkMode === 'boolean') {
+              const isNowDark = e.detail.darkMode;
+              document.body.classList.toggle("dark-mode", isNowDark);
+              // No need to set localStorage here, parent (home) is the source of truth for iframe theme dispatch
+              if (pageThemeToggle) { 
+                const sunIcon = pageThemeToggle.querySelector('.fa-sun');
+                const moonIcon = pageThemeToggle.querySelector('.fa-moon');
+                if (sunIcon && moonIcon) {
+                    sunIcon.style.display = isNowDark ? 'block' : 'none'; 
+                    moonIcon.style.display = isNowDark ? 'none' : 'block'; 
+                }
+              }
+          }
+      });
+      
+      if (pageThemeToggle) { 
+          pageThemeToggle.addEventListener('click', () => {
+              const bodyIsDarkNow = document.body.classList.toggle('dark-mode');
+              const newThemeState = bodyIsDarkNow ? 'dark' : 'light';
+              localStorage.setItem('theme', newThemeState); 
+              localStorage.setItem('darkMode', bodyIsDarkNow ? 'enabled' : 'disabled'); 
+              
+              const sunIcon = pageThemeToggle.querySelector('.fa-sun');
+              const moonIcon = pageThemeToggle.querySelector('.fa-moon');
+              if (sunIcon && moonIcon) {
+                sunIcon.style.display = bodyIsDarkNow ? 'block' : 'none'; 
+                moonIcon.style.display = bodyIsDarkNow ? 'none' : 'block'; 
+              }
+              // Inform parent (home) about the theme change
+              if (window.parent && window.parent !== window) { 
+                  window.parent.postMessage({ type: 'themeChangeFromIframe', darkMode: bodyIsDarkNow }, '*');
+              }
+          });
+      }
+      // --- END OF THEME SYNCHRONIZATION LOGIC ---
+
+      // --- THEME SETTINGS LOGIC ---
+      const lightThemeRadio = document.getElementById('lightTheme');
+      const darkThemeRadio = document.getElementById('darkTheme');
+      const autoThemeRadio = document.getElementById('autoTheme');
+      const saveThemeBtn = document.getElementById('saveThemeBtn');
+
+      // Function to get current theme setting
+      function getCurrentThemeSetting() {
+        const savedTheme = localStorage.getItem('theme');
+        const savedDarkMode = localStorage.getItem('darkMode');
+        
+        if (savedTheme === 'auto') return 'auto';
+        if (savedDarkMode === 'enabled' || savedTheme === 'dark') return 'dark';
+        return 'light';
+      }
+
+      // Function to set theme radio button
+      function setThemeRadio(theme) {
+        if (lightThemeRadio && darkThemeRadio && autoThemeRadio) {
+          lightThemeRadio.checked = theme === 'light';
+          darkThemeRadio.checked = theme === 'dark';
+          autoThemeRadio.checked = theme === 'auto';
+        }
+      }
+
+      // Initialize theme radio buttons
+      setThemeRadio(getCurrentThemeSetting());
+
+      // Theme radio button change handlers
+      if (lightThemeRadio) {
+        lightThemeRadio.addEventListener('change', () => {
+          if (lightThemeRadio.checked) {
+            document.body.classList.remove('dark-mode');
+            localStorage.setItem('theme', 'light');
+            localStorage.setItem('darkMode', 'disabled');
+            
+            // Inform parent about theme change
+            if (window.parent && window.parent !== window) {
+              window.parent.postMessage({ type: 'themeChangeFromIframe', darkMode: false }, '*');
+            }
+          }
+        });
+      }
+
+      if (darkThemeRadio) {
+        darkThemeRadio.addEventListener('change', () => {
+          if (darkThemeRadio.checked) {
+            document.body.classList.add('dark-mode');
+            localStorage.setItem('theme', 'dark');
+            localStorage.setItem('darkMode', 'enabled');
+            
+            // Inform parent about theme change
+            if (window.parent && window.parent !== window) {
+              window.parent.postMessage({ type: 'themeChangeFromIframe', darkMode: true }, '*');
+            }
+          }
+        });
+      }
+
+      if (autoThemeRadio) {
+        autoThemeRadio.addEventListener('change', () => {
+          if (autoThemeRadio.checked) {
+            localStorage.setItem('theme', 'auto');
+            
+            // Check system preference
+            const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+            document.body.classList.toggle('dark-mode', prefersDark);
+            localStorage.setItem('darkMode', prefersDark ? 'enabled' : 'disabled');
+            
+            // Inform parent about theme change
+            if (window.parent && window.parent !== window) {
+              window.parent.postMessage({ type: 'themeChangeFromIframe', darkMode: prefersDark }, '*');
+            }
+          }
+        });
+      }
+
+      // Listen for system theme changes when auto is selected
+      window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', (e) => {
+        if (autoThemeRadio && autoThemeRadio.checked) {
+          const isDark = e.matches;
+          document.body.classList.toggle('dark-mode', isDark);
+          localStorage.setItem('darkMode', isDark ? 'enabled' : 'disabled');
+          
+          // Inform parent about theme change
+          if (window.parent && window.parent !== window) {
+            window.parent.postMessage({ type: 'themeChangeFromIframe', darkMode: isDark }, '*');
+          }
+        }
+      });
+
+      // Save theme settings button
+      if (saveThemeBtn) {
+        saveThemeBtn.addEventListener('click', () => {
+          const currentTheme = getCurrentThemeSetting();
+          showToast(`Theme saved: ${currentTheme === 'auto' ? 'Auto (System)' : currentTheme === 'dark' ? 'Dark Mode' : 'Light Mode'}`);
+        });
+      }
+      // --- END OF THEME SETTINGS LOGIC ---
+
+      // --- PANEL EXPAND MODE SETTINGS LOGIC ---
+      const panelExpandStatic = document.getElementById('panelExpandStatic');
+      const panelExpandHover = document.getElementById('panelExpandHover');
+      const savePanelExpandModeBtn = document.getElementById('savePanelExpandModeBtn');
+
+      // Load saved setting
+      function loadPanelExpandModeSetting() {
+        const savedMode = localStorage.getItem('panelExpandMode') || 'static';
+        if (panelExpandStatic && panelExpandHover) {
+          panelExpandStatic.checked = savedMode === 'static';
+          panelExpandHover.checked = savedMode === 'hover';
+        }
+      }
+      loadPanelExpandModeSetting();
+
+      // Save setting
+      if (savePanelExpandModeBtn) {
+        savePanelExpandModeBtn.addEventListener('click', () => {
+          const selectedMode = panelExpandHover.checked ? 'hover' : 'static';
+          localStorage.setItem('panelExpandMode', selectedMode);
+          showToast(`Panel behavior saved: ${selectedMode === 'hover' ? 'Hover' : 'Static'}`);
+        });
+      }
+      // --- END PANEL EXPAND MODE SETTINGS LOGIC ---
+
+      async function loadUserSettings() {
+        pageLoader.classList.remove('hidden'); 
+        const token = getAuthToken();
+        if (!token) {
+             // Already handled by initial check, but good to be defensive
+            setTimeout(() => pageLoader.classList.add('hidden'), 200);
+            return;
+        }
+
+        try {
+            const response = await fetch(`${serverUrl}/api/me`, {
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+
+            if (response.status === 401) { // Unauthorized
+                showToast("Session expired. Please log in again.", "error");
+                localStorage.removeItem('auth_token'); // Clear potentially stale token
+                 if (window.parent && window.parent !== window) {
+                    window.parent.postMessage({ type: 'logout', reason: 'unauthorized_iframe' }, '*');
+                } else {
+                    window.location.href = 'Login page.html';
+                }
+                return; // Stop further processing
+            }
+
+            if (response.ok) {
+                const userData = await response.json();
+                userNameInput.value = userData.name || 'User';
+                userEmailInput.value = userData.email || 'user@example.com';
+                userBioInput.value = userData.bio || '';
+                avatarPreview.src = userData.avatar || 'https://randomuser.me/api/portraits/men/32.jpg';
+                if(!userData.avatar) avatarPreview.src = 'https://randomuser.me/api/portraits/men/32.jpg';
+
+                const chatbotEnabled = userData.chatbot_customization_enabled !== false; 
+                setChatbotCustomizationVisualState(chatbotEnabled);
+                
+                userNicknameInput.value = userData.chatbot_nickname || ''; 
+                chatbotToneSelect.value = userData.chatbot_tone || 'friendly_supportive';
+                chatbotCustomInstructionsTextarea.value = userData.chatbot_custom_instructions || '';
+                chatbotUserContextTextarea.value = userData.chatbot_user_context || '';
+
+            } else {
+                console.error("Failed to load user data from backend:", response.status);
+                showToast("Could not load profile data.", "error");
+                userNameInput.value = localStorage.getItem('user_name') || 'User';
+                setChatbotCustomizationVisualState(true); 
+            }
+        } catch (error) {
+            console.error("Error fetching user data:", error);
+            showToast("Network error loading profile.", "error");
+            userNameInput.value = localStorage.getItem('user_name') || 'User';
+            setChatbotCustomizationVisualState(true); 
+        } finally {
+            setTimeout(() => pageLoader.classList.add('hidden'), 200); 
+        }
+      }
+      
+      avatarUpload.addEventListener('change', (e) => {
+        const file = e.target.files[0];
+        if (file) {
+          const reader = new FileReader();
+          reader.onload = (event) => {
+            avatarPreview.src = event.target.result;
+          };
+          reader.readAsDataURL(file);
+        }
+      });
+      
+      async function saveAllSettings(event) {
+        const token = getAuthToken();
+        if (!token) {
+            showToast("Authentication error. Please log in again.", "error");
+             if (window.parent && window.parent !== window) {
+                window.parent.postMessage({ type: 'logout', reason: 'save_no_token' }, '*');
+            } else {
+                window.location.href = 'Login page.html';
+            }
+            return;
+        }
+
+        const settingsData = {
+          name: userNameInput.value,
+          bio: userBioInput.value,
+          avatar: avatarPreview.src, 
+          chatbot_customization_enabled: chatbotCustomizationToggle.classList.contains('active'), 
+          chatbot_nickname: userNicknameInput.value,
+          chatbot_tone: chatbotToneSelect.value,
+          chatbot_custom_instructions: chatbotCustomInstructionsTextarea.value,
+          chatbot_user_context: chatbotUserContextTextarea.value
+        };
+        
+        const activeSaveButton = event.target.closest('button'); 
+        const originalButtonHTML = activeSaveButton.innerHTML;
+        activeSaveButton.disabled = true;
+        activeSaveButton.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Saving...';
+
+        try {
+            const response = await fetch(`${serverUrl}/api/me`, {
+                method: 'PATCH',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                },
+                body: JSON.stringify(settingsData)
+            });
+            
+            if (response.status === 401) { // Unauthorized during save
+                showToast("Session expired. Save failed. Please log in.", "error");
+                localStorage.removeItem('auth_token');
+                if (window.parent && window.parent !== window) {
+                    window.parent.postMessage({ type: 'logout', reason: 'unauthorized_save' }, '*');
+                } else {
+                    window.location.href = 'Login page.html';
+                }
+                return;
+            }
+
+
+            if (response.ok) {
+                const updatedUser = await response.json();
+                showToast("Settings updated successfully!");
+                localStorage.setItem('user_name', updatedUser.name); 
+                
+                userNameInput.value = updatedUser.name;
+                userBioInput.value = updatedUser.bio || '';
+                avatarPreview.src = updatedUser.avatar || 'https://randomuser.me/api/portraits/men/32.jpg';
+                if(!updatedUser.avatar) avatarPreview.src = 'https://randomuser.me/api/portraits/men/32.jpg';
+                
+                const chatbotEnabled = updatedUser.chatbot_customization_enabled !== false;
+                setChatbotCustomizationVisualState(chatbotEnabled);
+                userNicknameInput.value = updatedUser.chatbot_nickname || '';
+                chatbotToneSelect.value = updatedUser.chatbot_tone || 'friendly_supportive';
+                chatbotCustomInstructionsTextarea.value = updatedUser.chatbot_custom_instructions || '';
+                chatbotUserContextTextarea.value = updatedUser.chatbot_user_context || '';
+
+            } else {
+                const errorData = await response.json();
+                showToast(errorData.detail || "Failed to update settings.", "error");
+            }
+        } catch (error) {
+            console.error("Error saving settings:", error);
+            showToast("Network error. Could not save settings.", "error");
+        } finally {
+            activeSaveButton.disabled = false;
+            activeSaveButton.innerHTML = originalButtonHTML;
+        }
+      }
+
+      saveProfileBtn.addEventListener('click', saveAllSettings);
+      saveChatbotSettingsBtn.addEventListener('click', saveAllSettings);
+
+
+      clearCurrentChatHistoryBtn.addEventListener('click', () => showConfirmationModal(clearCurrentChatModal));
+      clearAllChatHistoryBtn.addEventListener('click', () => showConfirmationModal(clearAllChatModal));
+      
+      changePasswordBtn.addEventListener('click', async () => {
+        const token = getAuthToken();
+        if (!token) {
+            showToast("Authentication error.", "error"); 
+             if (window.parent && window.parent !== window) {
+                window.parent.postMessage({ type: 'logout', reason: 'changepw_no_token' }, '*');
+            } else {
+                window.location.href = 'Login page.html';
+            }
+            return;
+        }
+
+        const currentPasswordInput = document.getElementById('currentPassword');
+        const newPasswordInput = document.getElementById('newPassword');
+        const confirmPasswordInput = document.getElementById('confirmPassword');
+
+        const currentPass = currentPasswordInput.value;
+        const newPass = newPasswordInput.value;
+        const confirmPass = confirmPasswordInput.value;
+
+        if (!currentPass || !newPass || !confirmPass) {
+          showToast("Please fill all password fields.", "error"); return;
+        }
+        if (newPass.length < 6) {
+          showToast("New password must be at least 6 characters.", "error"); return;
+        }
+        if (newPass !== confirmPass) {
+          showToast("New passwords don't match.", "error"); return;
+        }
+
+        const originalButtonHTML = changePasswordBtn.innerHTML;
+        changePasswordBtn.disabled = true;
+        changePasswordBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Changing...';
+
+        try {
+            const response = await fetch(`${serverUrl}/api/password/change`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                },
+                body: JSON.stringify({ current_password: currentPass, new_password: newPass })
+            });
+
+            if (response.status === 401) { // Unauthorized during password change
+                showToast("Session expired. Password change failed. Please log in.", "error");
+                localStorage.removeItem('auth_token');
+                if (window.parent && window.parent !== window) {
+                    window.parent.postMessage({ type: 'logout', reason: 'unauthorized_changepw' }, '*');
+                } else {
+                    window.location.href = 'Login page.html';
+                }
+                return;
+            }
+
+            const data = await response.json();
+            if (response.ok) {
+                showToast("Password changed successfully!");
+                currentPasswordInput.value = '';
+                newPasswordInput.value = '';
+                confirmPasswordInput.value = '';
+            } else {
+                showToast(data.detail || "Failed to change password.", "error");
+            }
+        } catch (error) {
+            console.error("Error changing password:", error);
+            showToast("Network error. Could not change password.", "error");
+        } finally {
+            changePasswordBtn.disabled = false;
+            changePasswordBtn.innerHTML = originalButtonHTML;
+        }
+      });
+      
+      if (deleteAccountBtn) {
+        deleteAccountBtn.addEventListener('click', () => {
+            deleteAccountConfirmText.value = ''; 
+            finalDeleteAccountBtn.disabled = true;
+            showConfirmationModal(deleteAccountModal);
+        });
+      }
+
+      if (logoutBtn) {
+        logoutBtn.addEventListener('click', () => {
+            localStorage.removeItem('auth_token');
+            localStorage.removeItem('user_name');
+            localStorage.removeItem('user_email');
+            localStorage.removeItem('user_avatar');
+            
+            if (window.parent && window.parent !== window) {
+                window.parent.postMessage({ type: 'logout', reason: 'user_logout' }, '*');
+            } else {
+                window.location.href = '../../index.html';
+            }
+        });
+      }
+
+      if (deleteAccountConfirmText) {
+        deleteAccountConfirmText.addEventListener('input', () => {
+            finalDeleteAccountBtn.disabled = deleteAccountConfirmText.value !== "DELETE MY ACCOUNT";
+        });
+      }
+      
+      function showToast(message, type = 'success') { 
+        toast.textContent = message;
+        toast.className = 'toast show'; 
+        if (type !== 'success') {
+          toast.classList.add(type);
+        }
+        setTimeout(() => {
+          toast.classList.remove('show');
+        }, 3000);
+      }
+
+      function showConfirmationModal(modalElement) {
+          modalElement.classList.add('show');
+          modalElement.querySelector('[data-action="cancel"]').onclick = () => modalElement.classList.remove('show');
+          const confirmBtn = modalElement.querySelector('[data-action="confirm"]');
+          
+          if (modalElement.id === 'clearCurrentChatModal') {
+              confirmBtn.onclick = () => {
+                  localStorage.removeItem('currentChatMessages_temp'); 
+                  showToast("Current chat history cleared (conceptual).");
+                  modalElement.classList.remove('show');
+              };
+          } else if (modalElement.id === 'clearAllChatModal') {
+              confirmBtn.onclick = () => {
+                  localStorage.removeItem('allChats_ClassMate'); 
+                  showToast("All chat history cleared (conceptual)!", "warning");
+                  modalElement.classList.remove('show');
+              };
+          } else if (modalElement.id === 'deleteAccountModal') {
+              confirmBtn.onclick = async () => {
+                  if (deleteAccountConfirmText.value === "DELETE MY ACCOUNT") {
+                      const token = getAuthToken();
+                      if (!token) {
+                          showToast("Authentication error.", "error");
+                          modalElement.classList.remove('show');
+                           if (window.parent && window.parent !== window) {
+                              window.parent.postMessage({ type: 'logout', reason: 'delete_no_token' }, '*');
+                          } else {
+                              window.location.href = 'Login page.html';
+                          }
+                          return;
+                      }
+                      const finalDeleteBtnOriginalHTML = finalDeleteAccountBtn.innerHTML;
+                      finalDeleteAccountBtn.disabled = true;
+                      finalDeleteAccountBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Deleting...';
+                      try {
+                          const response = await fetch(`${serverUrl}/api/me`, {
+                              method: 'DELETE',
+                              headers: { 'Authorization': `Bearer ${token}` }
+                          });
+                          if (response.ok) {
+                              showToast("Account deleted successfully. You will be logged out.", "warning");
+                              localStorage.clear(); // Clear iframe's local storage
+
+                              if (window.parent && window.parent !== window) {
+                                  window.parent.postMessage({ type: 'logout', reason: 'account_deleted' }, '*');
+                              }
+                              // The iframe will be redirected by the parent now, or directly if not in iframe
+                              // No need for setTimeout here if parent handles it. If parent doesn't, iframe redirects.
+                              // For simplicity, let parent handle redirect. If this page is standalone, it needs its own redirect.
+                              // setTimeout(() => { window.location.href = 'Login page.html'; }, 500); // Shorter delay
+
+                          } else if (response.status === 401) {
+                                showToast("Session expired. Deletion failed. Please log in.", "error");
+                                localStorage.removeItem('auth_token');
+                                if (window.parent && window.parent !== window) {
+                                    window.parent.postMessage({ type: 'logout', reason: 'unauthorized_delete' }, '*');
+                                } else {
+                                    window.location.href = 'Login page.html';
+                                }
+                          } else {
+                              const errorData = await response.json();
+                              showToast(errorData.detail || "Failed to delete account.", "error");
+                          }
+                      } catch (error) {
+                          console.error("Error deleting account:", error);
+                          showToast("Network error. Could not delete account.", "error");
+                      } finally {
+                          modalElement.classList.remove('show');
+                          finalDeleteAccountBtn.disabled = (deleteAccountConfirmText.value !== "DELETE MY ACCOUNT");
+                          finalDeleteAccountBtn.innerHTML = finalDeleteBtnOriginalHTML;
+                      }
+                  } else {
+                      showToast("Confirmation text does not match.", "error");
+                  }
+              };
+          }
+      }
+      
+      loadUserSettings();
+
+      // Collapsible logic for settings cards
+      const settingsCards = document.querySelectorAll('.settings-card');
+      settingsCards.forEach(card => {
+        const header = card.querySelector('.settings-header');
+        if (header && !header.querySelector('.chevron')) {
+          const chevron = document.createElement('i');
+          chevron.className = 'fas fa-chevron-down chevron';
+          header.appendChild(chevron);
+        }
+        card.classList.add('collapsed');
+        header.addEventListener('click', () => {
+          const isCurrentlyCollapsed = card.classList.contains('collapsed');
+          settingsCards.forEach(c => c.classList.add('collapsed'));
+          if (isCurrentlyCollapsed) {
+            card.classList.remove('collapsed');
+          }
+        });
+      });
+
+    });
+  </script>
 </body>
 </html>
