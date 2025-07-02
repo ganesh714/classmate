@@ -26,6 +26,7 @@ class Message(BaseModel):
 
 class ChatCreate(BaseModel):
     title: str = "New Chat"
+    user_id: Optional[str] = None  
 
 class ChatUpdate(BaseModel):
     title: Optional[str] = None
@@ -70,7 +71,12 @@ async def create_chat(chat_data: ChatCreate, current_user: dict = Depends(get_cu
         "updated_at": datetime.utcnow()
     }
     result = await chats_collection.insert_one(chat_data)
-    new_chat = await get_chat(str(result.inserted_id), str(current_user["_id"]))
+    new_chat = await chats_collection.find_one({"_id": result.inserted_id})
+
+    if not new_chat:
+        raise HTTPException(status_code=500, detail="Failed to create chat")
+    
+    new_chat["_id"] = str(new_chat["_id"])
     return ChatInDB(**new_chat)
 
 @router.get("/api/chats", response_model=List[ChatInfo])
