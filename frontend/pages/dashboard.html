@@ -664,9 +664,9 @@ body {
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
 <script>
-  // --- API & Auth Helpers ---
+  // --- START: API & AUTH HELPERS ---
   const API_URL = "https://classmate-juji.onrender.com";
-  
+
   function getAuthToken() {
     return localStorage.getItem('auth_token');
   }
@@ -674,23 +674,30 @@ body {
   async function fetchWithAuth(url, options = {}) {
     const token = getAuthToken();
     if (!token) {
-      window.location.href = 'Login page.html';
+      console.error("User not authenticated. Redirecting to login.");
+      // In a real app, you might want a more graceful handling
+      // window.location.href = 'Login page.html'; 
       throw new Error("User not authenticated");
     }
+
     const headers = {
       'Content-Type': 'application/json',
       'Authorization': `Bearer ${token}`,
       ...options.headers,
     };
+
     const response = await fetch(url, { ...options, headers });
+
     if (response.status === 401) {
-      window.location.href = 'Login page.html';
+      console.error("Session expired. Redirecting to login.");
+      // window.location.href = 'Login page.html';
       throw new Error("Session expired");
     }
     return response;
   }
+  // --- END: API & AUTH HELPERS ---
 
-  // Dashboard data structure
+  // Sample data - in a real app, this would come from your task manager's localStorage
   let dashboardData = {
     goals: [],
     activities: [],
@@ -711,9 +718,9 @@ body {
   let goalChart, taskChart;
 
   // Initialize the dashboard
-  function initDashboard() {
+  async function initDashboard() {
     applyTheme();
-    loadData();
+    await loadData(); // Now async
     renderStats();
     renderGoalCards();
     renderActivityLog();
@@ -737,117 +744,106 @@ body {
   window.addEventListener('storage', (e) => {
     if (e.key === 'darkMode') {
       applyTheme(); // Re-apply theme based on the new value
-      // Update charts if they need to be re-rendered with new theme colors
-      if (goalChart && taskChart) {
-          // You might need to destroy and re-init charts if their colors are theme-dependent
-          // For now, this just re-applies body class. Chart.js colors are hardcoded.
-      }
+      // This is a good place to re-render charts if their colors depend on the theme
+      if (goalChart) goalChart.destroy();
+      if (taskChart) taskChart.destroy();
+      initCharts();
     }
   });
 
-  // Load data from database instead of localStorage
+
+  // Load data from API instead of localStorage
   async function loadData() {
     try {
-      // Fetch tasks from database
-      const tasksResponse = await fetchWithAuth(`${API_URL}/api/tasks`);
-      if (!tasksResponse.ok) throw new Error("Failed to fetch tasks");
-      const tasksData = await tasksResponse.json();
-      
-      // Fetch notes from database
-      const notesResponse = await fetchWithAuth(`${API_URL}/api/notes`);
-      if (!notesResponse.ok) throw new Error("Failed to fetch notes");
-      const notesData = await notesResponse.json();
-      
-      // Process tasks data
-      dashboardData.goals = tasksData.map((task, taskArrayIndex) => {
-        const goalTitle = task.text.split('\n')[0].trim().replace(/^Goal:\s*/, '');
-        const phases = task.text.split(/Phase\s*\d*:/i).slice(1);
-        let totalTasksInGoal = 0;
-        let completedTasksInGoal = 0;
+        const [tasksResponse, notesResponse] = await Promise.all([
+            fetchWithAuth(`${API_URL}/api/tasks`),
+            fetchWithAuth(`${API_URL}/api/notes`)
+        ]);
+
+        if (!tasksResponse.ok) throw new Error('Failed to fetch tasks from API');
+        if (!notesResponse.ok) throw new Error('Failed to fetch notes from API');
+
+        const tasksData = await tasksResponse.json();
+        const notesData = await notesResponse.json();
         
-        phases.forEach((phaseBlock, phaseIndex) => {
-          const lines = phaseBlock.trim().split('\n').map(l => l.trim()).filter(Boolean);
-          if (lines.length <= 1) return;
-          
-          const phaseTasks = lines.slice(1);
-          totalTasksInGoal += phaseTasks.length;
-          
-          phaseTasks.forEach((_, taskItemIndex) => {
-            const checkboxId = `task_${taskArrayIndex}_phase_${phaseIndex}_item_${taskItemIndex}`;
-            if (task.checkbox_states && task.checkbox_states[checkboxId]) {
-              completedTasksInGoal++;
-            }
-          });
+        // Process tasks data to create goals for the dashboard
+        dashboardData.goals = tasksData.map((task, taskArrayIndex) => {
+            const goalTitle = task.text.split('\n')[0].trim().replace(/^Goal:\s*/, '');
+            const phases = task.text.split(/Phase\s*\d*:/i).slice(1);
+            let totalTasksInGoal = 0;
+            let completedTasksInGoal = 0;
+            
+            // Use the checkbox_states specific to this task object
+            const checkboxStates = task.checkbox_states || {};
+
+            phases.forEach((phaseBlock, phaseIndex) => {
+                const lines = phaseBlock.trim().split('\n').map(l => l.trim()).filter(Boolean);
+                if (lines.length <= 1) return;
+                
+                const phaseTasks = lines.slice(1);
+                totalTasksInGoal += phaseTasks.length;
+                
+                phaseTasks.forEach((_, taskItemIndex) => {
+                    // The ID structure must match what taskManager.html generates
+                    const checkboxId = `task_${taskArrayIndex}_phase_${phaseIndex}_item_${taskItemIndex}`;
+                    if (checkboxStates[checkboxId]) {
+                        completedTasksInGoal++;
+                    }
+                });
+            });
+            
+            return {
+                id: task.id || task._id, // Use the actual DB ID
+                title: goalTitle,
+                totalTasks: totalTasksInGoal,
+                completedTasks: completedTasksInGoal,
+                pinned: task.pinned || false,
+                highlighted: task.highlighted || false,
+                lastUpdated: task.updatedAt || new Date().toISOString() // Use timestamp from DB
+            };
         });
         
-        return {
-          id: task.id || task._id,
-          title: goalTitle,
-          totalTasks: totalTasksInGoal,
-          completedTasks: completedTasksInGoal,
-          pinned: task.pinned || false,
-          highlighted: task.highlighted || false,
-          lastUpdated: task.updated_at || task.timestamp || new Date().toISOString()
-        };
-      });
-      
-      // Process notes data
-      dashboardData.notes = notesData.map(note => ({
-        ...note,
-        id: note.id || note._id,
-        timestamp: note.timestamp || note.created_at || new Date().toISOString()
-      }));
-      
-      // Generate activity data from database timestamps
-      await generateActivityFromDatabase();
-      
+        // Assign notes data
+        dashboardData.notes = notesData.map(note => ({
+            ...note,
+            id: note.id || note._id
+        }));
+        
+        // Generate sample activity if none exists
+        if ((dashboardData.goals.length > 0 || dashboardData.notes.length > 0) && dashboardData.activities.length === 0) {
+            generateSampleActivity();
+        }
+
     } catch (error) {
-      console.error('Error loading data:', error);
-      // Fallback to empty data
-      dashboardData = { goals: [], activities: [], notes: [] };
+        console.error("Error loading dashboard data:", error);
+        // On failure, clear the data to show an empty but not broken state
+        dashboardData.goals = [];
+        dashboardData.notes = [];
+        dashboardData.activities = [];
     }
   }
 
-  // Generate activity data using actual database timestamps
-  async function generateActivityFromDatabase() {
+  function generateSampleActivity() {
     const activities = [];
-    
-    // Add goal activities based on database timestamps
+    // Simplified sample generation
     dashboardData.goals.forEach(goal => {
       activities.push({
-        id: 'act-g-' + goal.id,
-        action: 'created',
-        item: 'goal',
-        title: goal.title,
-        time: goal.lastUpdated
+        id: 'act-g-' + goal.id, action: 'created', item: 'goal', title: goal.title,
+        time: new Date(Date.now() - Math.random() * 7 * 24 * 60 * 60 * 1000).toISOString()
       });
-      
       if (goal.completedTasks > 0) {
-        // Add a task completion activity slightly after goal creation
-        const taskCompletionTime = new Date(goal.lastUpdated);
-        taskCompletionTime.setHours(taskCompletionTime.getHours() + 1);
-        activities.push({
-          id: 'act-t-' + goal.id,
-          action: 'completed',
-          item: 'task',
-          title: `Task in ${goal.title}`,
-          time: taskCompletionTime.toISOString()
-        });
+         activities.push({
+            id: 'act-t-' + goal.id, action: 'completed', item: 'task', title: `Task in ${goal.title}`,
+            time: new Date(Date.now() - Math.random() * 3 * 24 * 60 * 60 * 1000).toISOString()
+         });
       }
     });
-    
-    // Add note activities based on database timestamps
     dashboardData.notes.forEach(note => {
       activities.push({
-        id: 'act-n-' + note.id,
-        action: 'created',
-        item: 'note',
-        title: note.title || 'Untitled Note',
-        time: note.timestamp
+        id: 'act-n-' + (note.id || Math.random().toString(36).substr(2,9)), action: 'created', item: 'note', title: note.title || 'Untitled Note',
+        time: new Date(note.timestamp || Date.now() - Math.random() * 2 * 24 * 60 * 60 * 1000).toISOString()
       });
     });
-    
-    // Sort activities by time (most recent first) and limit to 10
     activities.sort((a, b) => new Date(b.time) - new Date(a.time));
     dashboardData.activities = activities.slice(0, 10);
   }
@@ -1015,7 +1011,7 @@ body {
       data: {
         labels: ['Completed', 'Incomplete'],
         datasets: [{
-          data: [completedTasksVal, totalTasksVal - completedTasksVal],
+          data: [completedTasksVal, totalTasksVal - totalTasksVal],
           backgroundColor: [taskAccentColor, incompleteColor],
           borderColor: [taskAccentColor, incompleteColor],
           borderWidth: 1,
@@ -1037,7 +1033,7 @@ body {
   }
 
   async function refreshData() {
-    // Clear existing activities before reloading data to avoid duplicates
+    // Clear existing activities before reloading data to avoid duplicates if generateSampleActivity runs again
     dashboardData.activities = []; 
     await loadData();
     renderStats();
@@ -1060,13 +1056,7 @@ body {
     }
   }
 
-  // Listen for storage events to update when notes or tasks change
-  window.addEventListener('storage', function(e) {
-    if (e.key === 'notes' || e.key === 'tasks' || e.key === 'checkboxStates') {
-      refreshData();
-    }
-  });
-
+  // Event Listeners
   refreshBtn.addEventListener('click', refreshData);
   themeToggle.addEventListener('click', toggleTheme);
 
@@ -1079,4 +1069,3 @@ body {
 </script>
 </body>
 </html>
-
