@@ -85,15 +85,14 @@ async def get_all_chats(current_user: dict = Depends(get_current_user)):
     chats = []
     async for chat in chats_collection.find({"user_id": user_id}).sort("updated_at", -1):
         chat["_id"] = str(chat["_id"])
-        # Get last message preview if exists
         preview = None
-        if chat["messages"]:
+        if chat.get("messages"):
             last_msg = chat["messages"][-1]
             preview = last_msg["content"][:50] + "..." if len(last_msg["content"]) > 50 else last_msg["content"]
         chats.append({
             "_id": chat["_id"],
             "title": chat["title"],
-            "updated_at": chat["updated_at"],
+            "updated_at": chat.get("updated_at", chat.get("created_at", datetime.utcnow())),
             "preview": preview
         })
     return chats
