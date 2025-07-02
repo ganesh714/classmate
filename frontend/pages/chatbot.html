@@ -1490,7 +1490,7 @@ Remember to break your goals into phases and tasks.`;
         'Authorization': `Bearer ${token}`,
         ...options.headers,
         };
-        const response = await fetch(serverUrl + url, { ...options, headers });
+        const response = await fetch(url, { ...options, headers });
         if (response.status === 401) {
         window.location.href = 'Login page.html';
         throw new Error("Session expired");
@@ -1719,7 +1719,7 @@ Remember to break your goals into phases and tasks.`;
         try {
             for (const chatId in allChats) {
                 const chat = allChats[chatId];
-                await fetchWithAuth('/api/chats', {
+                await fetchWithAuth(`${serverUrl}/api/chats`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
@@ -1738,7 +1738,7 @@ Remember to break your goals into phases and tasks.`;
 
     async function loadChats() {
         try {
-            const res = await fetchWithAuth('/api/chats');
+            const res = await fetchWithAuth(`${serverUrl}/api/chats`);
             const chats = await res.json();
             allChats = {};
 
@@ -2515,7 +2515,7 @@ document.querySelectorAll('.dialog-modal').forEach(dialog => {
 
     async function saveToTaskMaster(content) {
         try {
-            const res = await fetchWithAuth('/api/tasks', {
+            const res = await fetchWithAuth(`${serverUrl}/api/tasks`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify([
@@ -2538,7 +2538,7 @@ document.querySelectorAll('.dialog-modal').forEach(dialog => {
 
     async function saveToNotes(title, content) {
         try {
-            const res = await fetchWithAuth('/api/notes', {
+            const res = await fetchWithAuth(`${serverUrl}/api/notes`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
