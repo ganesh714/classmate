@@ -1895,11 +1895,15 @@ function toggleSidebar() {
                     headers: {
                         'Authorization': `Bearer ${token}`,
                         'Content-Type': 'application/json'
-                    }
+                    },
+                    body: JSON.stringify({
+                        title: "New Chat"  // Make sure to send the expected structure
+                    })
                 });
                 
                 if (!response.ok) {
-                    throw new Error(`HTTP error! status: ${response.status}`);
+                    const errorData = await response.json();
+         
                 }
                 
                 const newChat = await response.json();
@@ -1940,30 +1944,32 @@ function toggleSidebar() {
             renderChatHistory();
             
             if (switchToNew) {
-                const newLi = chatHistoryList.querySelector(`[data-chat-id="${newChatId}"]`);
-                if (newLi) {
-                    document.querySelectorAll("#chat-history-list li.active").forEach(el => el.classList.remove("active"));
-                    newLi.classList.add("active");
-                }
+                 const newLi = chatHistoryList.querySelector(`[data-chat-id="${newChatId}"]`);
+            if (newLi) {
+                document.querySelectorAll("#chat-history-list li.active").forEach(el => el.classList.remove("active"));
+                newLi.classList.add("active");
             }
         } catch (error) {
             console.error("Error starting new chat:", error);
-            // Fallback to local storage
-            newChatId = `chat_${Date.now()}`;
-            allChats[newChatId] = {
-                title: "New Chat",
-                lastActivityTimestamp: Date.now(),
-                messages: []
-            };
-            
-            if (switchToNew) {
-                currentChatId = newChatId;
-                localStorage.setItem("currentChatId_ClassMate", currentChatId);
-                chatContainer.innerHTML = "";
-            }
-            
-            saveChats();
-            renderChatHistory();
+        showToast("Failed to create new chat. Using local storage.", "error");
+        
+        // Fallback to local storage
+        newChatId = `chat_${Date.now()}`;
+        allChats[newChatId] = {
+            id: newChatId,
+            title: "New Chat",
+            lastActivityTimestamp: Date.now(),
+            messages: []
+        };
+        
+        if (switchToNew) {
+            currentChatId = newChatId;
+            localStorage.setItem("currentChatId_ClassMate", currentChatId);
+            chatContainer.innerHTML = "";
+        }
+        
+        saveChats();
+        renderChatHistory();
         }
     }
 
