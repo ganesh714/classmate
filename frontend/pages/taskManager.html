@@ -99,6 +99,33 @@
     overflow-x: hidden;
   }
 
+  /* Page Loader */
+  #page-loader-taskmanager {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background-color: var(--bg);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      z-index: 10000;
+      opacity: 1;
+      transition: opacity 0.3s ease-out;
+  }
+  #page-loader-taskmanager .spinner {
+      width: 50px;
+      height: 50px;
+      border: 5px solid var(--text-secondary);
+      border-top-color: var(--accent);
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+  }
+  @keyframes spin {
+      to { transform: rotate(360deg); }
+  }
+
   .grid-bg {
     position: fixed; top: 0; left: 0; width: 100%; height: 100%;
     background-image: 
@@ -1080,6 +1107,10 @@ body {
 </style>
 </head>
 <body>
+<div id="page-loader-taskmanager">
+    <div class="spinner"></div>
+</div>
+
 <div class="grid-bg"></div>
 
 <div class="container">
@@ -1115,7 +1146,7 @@ Phase 2:
 - React Basics"></textarea>
           <div style="margin-top: 1rem; text-align: right;">
             <button class="btn btn-primary" id="saveGoalBtn">
-              <span class="btn-icon"><i class="fa-solid fa-floppy-disk"></i></span>
+              <i class="fa-solid fa-floppy-disk" style="margin-right: 8px;"></i> Add Tasks
             </button>
           </div>
         </div>
@@ -1132,7 +1163,7 @@ Phase 2:
   <div class="modal" id="taskModal">
     <div class="modal-header">
       <h2 class="modal-title" id="modalTitle">Task Title</h2>
-      <button class="modal-close" id="modalCloseBtn" aria-label="Close modal">&times;</button>
+      <button class="modal-close" id="modalCloseBtn" aria-label="Close modal">×</button>
     </div>
     <div class="modal-body">
       <div class="modal-actions">
@@ -1150,7 +1181,7 @@ Phase 2:
   <div class="modal edit-modal" id="editModal">
     <div class="modal-header">
       <h2 class="modal-title">Edit Task</h2>
-      <button class="modal-close" id="editModalCloseBtn" aria-label="Close modal">&times;</button>
+      <button class="modal-close" id="editModalCloseBtn" aria-label="Close modal">×</button>
     </div>
     <div class="modal-body">
       <div class="edit-form">
@@ -1234,6 +1265,7 @@ Phase 2:
   }
 
   // DOM Elements
+  const pageLoader = document.getElementById('page-loader-taskmanager');
   const inputPanel = document.getElementById('inputPanel');
   const inputPanelHeader = document.getElementById('inputPanelHeader');
   const inputText = document.getElementById('inputText');
@@ -1444,21 +1476,29 @@ Phase 2:
   async function saveGoal() {
     const input = inputText.value.trim();
     if (!input) return;
-    const goalBlocks = input.split(/Goal:\s*/).map(b => b.trim()).filter(Boolean);
-    const newTasks = goalBlocks.map(block => ({ text: block, pinned: false, highlighted: false, checkbox_states: {} }));
+
+    const originalButtonHTML = saveGoalBtn.innerHTML;
+    saveGoalBtn.disabled = true;
+    saveGoalBtn.innerHTML = '<i class="fas fa-spinner fa-spin" style="margin-right: 8px;"></i> Adding...';
+
     try {
-      const response = await fetchWithAuth(`${API_URL}/api/tasks`, {
-        method: 'POST',
-        body: JSON.stringify(newTasks)
-      });
-      if (!response.ok) throw new Error("Failed to create tasks");
-      await loadData();
-      inputText.value = '';
-      inputPanel.classList.remove('open');
-      showToast("Tasks saved successfully!");
+        const goalBlocks = input.split(/Goal:\s*/).map(b => b.trim()).filter(Boolean);
+        const newTasks = goalBlocks.map(block => ({ text: block, pinned: false, highlighted: false, checkbox_states: {} }));
+        const response = await fetchWithAuth(`${API_URL}/api/tasks`, {
+            method: 'POST',
+            body: JSON.stringify(newTasks)
+        });
+        if (!response.ok) throw new Error("Failed to create tasks");
+        await loadData();
+        inputText.value = '';
+        inputPanel.classList.remove('open');
+        showToast("Tasks saved successfully!");
     } catch (error) {
-      console.error(error);
-      showToast("Error saving tasks.");
+        console.error(error);
+        showToast("Error saving tasks.");
+    } finally {
+        saveGoalBtn.disabled = false;
+        saveGoalBtn.innerHTML = originalButtonHTML;
     }
   }
 
@@ -1666,7 +1706,7 @@ Phase 2:
       phaseTasks.forEach((taskText, taskItemIndex) => {
         const checkboxId = `task_${taskIndex}_phase_${phaseIndex}_item_${taskItemIndex}`;
         const isChecked = checkboxStates[checkboxId] || false;
-        const safeTaskText = taskText.replace(/'/g, "&#39;").replace(/"/g, '&quot;');
+        const safeTaskText = taskText.replace(/'/g, "'").replace(/"/g, '"');
         html += `
           <div class="task-item">
             <input type="checkbox" class="task-checkbox" 
@@ -1760,8 +1800,21 @@ Phase 2:
     }
   });
 
-  loadData();
-  renderTaskCards();
+  // --- Initial Load ---
+  async function initializeApp() {
+    try {
+      await loadData();
+    } catch(err) {
+      console.error("Initialization failed:", err);
+    } finally {
+      if (pageLoader) {
+        pageLoader.style.opacity = '0';
+        setTimeout(() => { pageLoader.style.display = 'none'; }, 300);
+      }
+    }
+  }
+
+  initializeApp();
 
   // Professional dialog show/hide utility
   function showProDialog({title, message, onConfirm, onCancel, confirmText = 'OK', cancelText = 'Cancel'}) {
