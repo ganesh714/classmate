@@ -1843,7 +1843,81 @@
                 noteViewModal.classList.remove("show");
                 setTimeout(() => noteViewModal.style.display = "none", 300);
             }
-            
+
+            function renderAttachmentPreviews() {
+                attachmentsPreview.innerHTML = "";
+                currentAttachments.forEach(attach => {
+                    const preview = document.createElement("div");
+                    preview.className = "attachment-preview";
+                    
+                    if (attach.type.startsWith("image/")) {
+                        preview.innerHTML = `
+                            <img src="${attach.data}" alt="${attach.name}">
+                            <div class="remove-attachment" data-name="${attach.name}">
+                                <svg class="icon-svg" viewBox="0 0 24 24">
+                                    <path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/>
+                                </svg>
+                            </div>
+                        `;
+                    } else if (attach.type === "application/pdf") {
+                        preview.innerHTML = `
+                            <div class="pdf-icon">
+                                <svg class="icon-svg" viewBox="0 0 24 24">
+                                    <path fill="#ea4335" d="M14 2H6c-1.1 0-1.99.9-1.99 2L4 20c0 1.1.89 2 1.99 2H18c1.1 0 2-.9 2-2V8l-6-6z"/>
+                                </svg>
+                                <span>${attach.name.slice(0, 10)}...</span>
+                                <div class="remove-attachment" data-name="${attach.name}">
+                                    <svg class="icon-svg" viewBox="0 0 24 24">
+                                        <path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/>
+                                    </svg>
+                                </div>
+                            </div>
+                        `;
+                    }
+                    
+                    preview.querySelector(".remove-attachment").addEventListener("click", (e) => {
+                        e.stopPropagation();
+                        currentAttachments = currentAttachments.filter(a => a.name !== attach.name);
+                        renderAttachmentPreviews();
+                    });
+                    
+                    attachmentsPreview.appendChild(preview);
+                });
+            }
+            function readFileAsDataURL(file) {
+                return new Promise((resolve, reject) => {
+                    const reader = new FileReader();
+                    reader.onload = () => resolve(reader.result);
+                    reader.onerror = reject;
+                    reader.readAsDataURL(file);
+                });
+            }
+            // Should be added to API calls in the DB version
+            async function handleApiError(response) {
+                if (!response.ok) {
+                    const error = await response.json().catch(() => ({}));
+                    showProDialog({ 
+                        title: "Error", 
+                        message: error.message || "An error occurred"
+                    });
+                    throw new Error(error.message || "API request failed");
+                }
+                return response;
+            }
+
+            // Should be added before saving notes
+            function validateNote(note) {
+                if (!note.title && !note.content && 
+                    (!note.listItems || note.listItems.length === 0) && 
+                    (!note.attachments || note.attachments.length === 0)) {
+                    showProDialog({
+                        title: "Empty Note",
+                        message: "Cannot save an empty note"
+                    });
+                    return false;
+                }
+                return true;
+            }
             // --- Note Saving Logic ---
             saveNoteBtn.addEventListener("click", async () => {
                 const title = noteTitleInput.value.trim();
