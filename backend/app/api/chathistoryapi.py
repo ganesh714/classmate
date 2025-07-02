@@ -16,7 +16,7 @@ load_dotenv()
 # MongoDB connection setup
 MONGO_DETAILS = os.getenv("MONGO_URI", "mongodb://localhost:27017")
 client = motor.motor_asyncio.AsyncIOMotorClient(MONGO_DETAILS)
-db = client["Classmate"]
+db = client["classmate"]
 chats_collection = db["chats"]
 
 class Message(BaseModel):
