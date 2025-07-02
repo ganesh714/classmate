@@ -1440,7 +1440,7 @@ Phase 2:
           body: JSON.stringify({ checkbox_states: taskCheckboxStates })
         });
       }
-      showToast("Checkbox states saved!");
+      // Toast removed for smoother experience
     } catch (error) {
       console.error(error);
       showToast("Error saving checkbox states.");
@@ -1513,6 +1513,7 @@ Phase 2:
           const task = tasks[index];
           await fetchWithAuth(`${API_URL}/api/tasks/${task.id}`, { method: 'DELETE' });
           tasks.splice(index, 1);
+          if (modalOpenIndex === index) closeModal();
           await loadData();
         } catch (error) {
           console.error(error);
@@ -1526,12 +1527,21 @@ Phase 2:
   async function togglePin(index) {
     try {
       const task = tasks[index];
-      task.pinned = !task.pinned;
+      const newPinState = !task.pinned;
+
       await fetchWithAuth(`${API_URL}/api/tasks/${task.id}`, {
         method: 'PUT',
-        body: JSON.stringify({ pinned: task.pinned })
+        body: JSON.stringify({ pinned: newPinState })
       });
+
+      // --- FIX: Instantly update the modal's class if it's the one being viewed ---
+      if (modalOpenIndex === index) {
+        taskModal.classList.toggle('pinned', newPinState);
+      }
+      
+      // Refresh the entire state from the server to ensure consistency
       await loadData();
+
     } catch (error) {
       console.error(error);
       showToast("Error updating pin state.");
@@ -1541,12 +1551,21 @@ Phase 2:
   async function toggleHighlight(index) {
     try {
       const task = tasks[index];
-      task.highlighted = !task.highlighted;
+      const newHighlightState = !task.highlighted;
+
       await fetchWithAuth(`${API_URL}/api/tasks/${task.id}`, {
         method: 'PUT',
-        body: JSON.stringify({ highlighted: task.highlighted })
+        body: JSON.stringify({ highlighted: newHighlightState })
       });
+
+      // --- FIX: Instantly update the modal's class if it's the one being viewed ---
+      if (modalOpenIndex === index) {
+        taskModal.classList.toggle('highlighted', newHighlightState);
+      }
+      
+      // Refresh the entire state from the server to ensure consistency
       await loadData();
+      
     } catch (error) {
       console.error(error);
       showToast("Error updating highlight state.");
@@ -1769,6 +1788,8 @@ Phase 2:
       });
       await loadData();
       if (modalOpenIndex === editingTaskIndex) {
+        // Also update the title of the open modal
+        modalTitle.textContent = newText.split('\n')[0];
         renderModalPhases(editingTaskIndex);
       }
       editModalOverlay.classList.remove('show');
