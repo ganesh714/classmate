@@ -1546,6 +1546,12 @@
                     const response = await fetchWithAuth(`${API_URL}/api/notes`);
                     if (!response.ok) throw new Error("Failed to fetch notes");
                     notes = await response.json();
+                    // Ensure all note IDs are strings
+                    notes = notes.map(note => ({
+                        ...note,
+                        id: note.id || note._id // Handle both id and _id cases
+                    }));
+                    
                     renderNotes();
                 } catch (error) {
                     console.error(error);
@@ -1672,7 +1678,10 @@
                     footer.appendChild(statusIcons);
                     noteCard.appendChild(footer);
 
-                    noteCard.addEventListener("click", () => openViewModal(note.id));
+                    noteCard.addEventListener("click", () =>{
+                        const noteId = note.id || note._id;
+                        openViewModal(note.id)
+                    });
 
                     notesContainer.appendChild(noteCard);
                 });
@@ -1725,26 +1734,36 @@
             }
             
             async function openEditModal(noteId) {
-                const note = notes.find(n => n.id === noteId);
-                if (!note) return;
-                
-                editingNoteId = noteId;
-                currentNoteType = note.type;
-                modalTitle.textContent = `Edit ${note.type} Note`;
-                noteTitleInput.value = note.title;
-                noteContentInput.value = note.content || "";
-                currentAttachments = note.attachments ? [...note.attachments] : [];
-                
-                textNoteContent.style.display = note.type === 'text' ? 'block' : 'none';
-                listNoteContent.style.display = note.type === 'list' ? 'block' : 'none';
-                listItemsContainer.innerHTML = "";
-                if(note.type === 'list') (note.listItems || []).forEach(item => addListItem(item.text, item.checked));
+                try{
+                    const note = notes.find(n => n.id === noteId);
+                    if (!note) {
+                        showProDialog({ title: "Error", message: "Note not found" });
+                        return;
+                    }
+                    
+                    editingNoteId = noteId;
+                    currentNoteType = note.type;
+                    modalTitle.textContent = `Edit ${note.type} Note`;
+                    noteTitleInput.value = note.title;
+                    noteContentInput.value = note.content || "";
+                    currentAttachments = note.attachments ? [...note.attachments] : [];
+                    
+                    textNoteContent.style.display = note.type === 'text' ? 'block' : 'none';
+                    listNoteContent.style.display = note.type === 'list' ? 'block' : 'none';
+                    listItemsContainer.innerHTML = "";
+                    if(note.type === 'list') (note.listItems || []).forEach(item => addListItem(item.text, item.checked));
+    
+                    renderAttachmentPreviews();
+    
+                    noteEditorModal.style.display = "block";
+                    setTimeout(() => noteEditorModal.classList.add("show"), 10);
+                    setTimeout(() => noteTitleInput.focus(), 300);
+                }
 
-                renderAttachmentPreviews();
-
-                noteEditorModal.style.display = "block";
-                setTimeout(() => noteEditorModal.classList.add("show"), 10);
-                setTimeout(() => noteTitleInput.focus(), 300);
+                catch (error) {
+                    console.error("Error opening edit modal:", error);
+                    showProDialog({ title: "Error", message: "Could not open note for editing" });
+                }
             }
 
             async function openViewModal(noteId) {
