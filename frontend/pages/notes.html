@@ -1713,6 +1713,10 @@
                 input.focus();
             }
 
+            addListItemBtn.addEventListener("click", () => {
+                addListItem();
+            });
+
             // --- Modal Logic (Create, Edit, View) ---
             function openCreateModal(type) {
                 editingNoteId = null;
