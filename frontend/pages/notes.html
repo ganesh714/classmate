@@ -99,6 +99,33 @@
             overflow-y: auto;
             overflow-x: hidden; /* Prevent horizontal scrolling */
         }
+        
+        /* Page Loader */
+        #page-loader-notes {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: var(--bg);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 10000;
+            opacity: 1;
+            transition: opacity 0.3s ease-out;
+        }
+        #page-loader-notes .spinner {
+            width: 50px;
+            height: 50px;
+            border: 5px solid var(--text-secondary);
+            border-top-color: var(--accent);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
 
         .grid-bg {
             position: fixed;
@@ -602,6 +629,9 @@
             font-size: 1em;
             font-family: var(--font-primary);
             transition: all 0.2s;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
         }
 
         .btn-cancel {
@@ -1318,6 +1348,9 @@
     </style>
 </head>
 <body>
+    <div id="page-loader-notes">
+        <div class="spinner"></div>
+    </div>
 
     <header>
         <h1 class="notes-title"><i class="fa-solid fa-note-sticky"></i> My Notes</h1>
@@ -1444,7 +1477,7 @@
         <div class="attachment-viewer-content">
             <div class="attachment-viewer-header">
                 <div class="attachment-viewer-title">Attachment</div>
-                <button class="attachment-viewer-close">&times;</button>
+                <button class="attachment-viewer-close">×</button>
             </div>
             <div class="attachment-viewer-body" id="attachmentViewerBody">
                 <!-- Content will be dynamically inserted here -->
@@ -1475,6 +1508,7 @@
             let currentAttachments = [];
 
             // --- DOM Elements ---
+            const pageLoader = document.getElementById("page-loader-notes");
             const mainFab = document.getElementById("mainFab");
             const fabOptions = document.getElementById("fabOptions");
             const textNoteBtn = document.getElementById("textNoteBtn");
@@ -1935,6 +1969,10 @@
                     showProDialog({ title: "Empty Note", message: "Cannot save an empty note." });
                     return;
                 }
+                
+                const originalButtonHTML = saveNoteBtn.innerHTML;
+                saveNoteBtn.disabled = true;
+                saveNoteBtn.innerHTML = '<i class="fas fa-spinner fa-spin" style="margin-right: 8px;"></i> Saving...';
 
                 const noteData = {
                     title: title || (currentNoteType === 'text' ? "Untitled Note" : "Untitled List"),
@@ -1959,6 +1997,9 @@
                 } catch (error) {
                     console.error(error);
                     showProDialog({ title: "Error", message: "Could not save the note." });
+                } finally {
+                    saveNoteBtn.disabled = false;
+                    saveNoteBtn.innerHTML = originalButtonHTML;
                 }
             });
 
@@ -2045,9 +2086,25 @@
                     setTimeout(() => openEditModal(viewingNoteId), 300);
                 }
             });
+            
+            async function initializeApp() {
+                try {
+                    await fetchNotes();
+                } catch (err) {
+                    console.error("Failed to initialize app:", err);
+                } finally {
+                    if (pageLoader) {
+                        pageLoader.style.opacity = '0';
+                        setTimeout(() => {
+                            pageLoader.style.display = 'none';
+                        }, 300);
+                    }
+                }
+            }
 
             // --- Initial Load ---
-            fetchNotes();
+            initializeApp();
+
 
             // --- Theme Sync Logic ---
             function applyThemeSynchronized() {
