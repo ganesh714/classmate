@@ -1,3 +1,5 @@
+import os
+from dotenv import load_dotenv 
 from fastapi import APIRouter, HTTPException, Depends, status
 from pydantic import BaseModel, Field
 from typing import List, Optional
@@ -9,11 +11,12 @@ from fastapi.encoders import jsonable_encoder
 from .userapi import get_current_user
 
 router = APIRouter()
+load_dotenv()
 
 # MongoDB connection setup
-MONGO_DETAILS = "mongodb://localhost:27017"
+MONGO_DETAILS = os.getenv("MONGO_URI", "mongodb://localhost:27017")
 client = motor.motor_asyncio.AsyncIOMotorClient(MONGO_DETAILS)
-db = client["classmateai"]
+db = client["Classmate"]
 chats_collection = db["chats"]
 
 class Message(BaseModel):
