@@ -92,7 +92,7 @@ async def update_note(note_id: str, note_update: NoteCreateUpdate, current_user:
     if not updated_note:
         raise HTTPException(status_code=500, detail="Failed to retrieve updated note.")
 
-    rupdated_note["_id"] = str(updated_note["_id"])
+    updated_note["_id"] = str(updated_note["_id"])
     return NoteInDB.model_validate(updated_note)
 
 
