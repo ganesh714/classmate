@@ -1945,9 +1945,10 @@ function toggleSidebar() {
             
             if (switchToNew) {
                  const newLi = chatHistoryList.querySelector(`[data-chat-id="${newChatId}"]`);
-            if (newLi) {
-                document.querySelectorAll("#chat-history-list li.active").forEach(el => el.classList.remove("active"));
-                newLi.classList.add("active");
+                if (newLi) {
+                    document.querySelectorAll("#chat-history-list li.active").forEach(el => el.classList.remove("active"));
+                    newLi.classList.add("active");
+                }
             }
         } catch (error) {
             console.error("Error starting new chat:", error);
