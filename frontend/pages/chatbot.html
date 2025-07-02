@@ -953,14 +953,21 @@
     }
 }
 
-@media (max-width: 480px) {
+@media (min-width:320px) and (max-width: 480px) {
     /* Extra small screen adjustments */
     .chat-container {
         padding: 0.75rem;
+        padding-bottom: 120px !important;
     }
 
     .input-container {
-        padding: 0.75rem;
+        display:flex;
+        z-index:100;
+        padding: 10px;
+        position: sticky;
+        bottom: 0;
+        width:100%;
+        max-width:480px;
     }
 
     .message {
@@ -1243,11 +1250,11 @@
       }
       .main-content {
         padding-top: 70px !important;
-        padding-bottom: 90px !important;
+        padding-bottom: 0px !important;
       }
       .chat-container {
         padding-top: 0 !important;
-        padding-bottom: 0 !important;
+        padding-bottom: 120px !important;
       }
       .input-container {
         position: fixed;
@@ -1401,7 +1408,8 @@
     const todoListOption = document.getElementById("todo-list-option");
     const sidebarSearchBtn = document.getElementById("sidebar-search-btn");
     const sidebarSearchInput = document.getElementById("sidebar-search-input");
-    const serverUrl = "https://classmate-juji.onrender.com";
+    const serverUrl = "https://classmate1-ffw7.onrender.com";
+    const API_URL = "https://classmate-juji.onrender.com"; // API for Notes & Tasks
     const style = document.createElement("style"); 
     const toast = document.getElementById("toast");
     const themeToggleBtn = document.getElementById("theme-toggle-btn");
@@ -1490,6 +1498,29 @@ Remember to break your goals into phases and tasks.`;
     function getAuthToken() {
         return localStorage.getItem('auth_token');
     }
+
+    async function fetchWithAuth(url, options = {}) {
+        const token = getAuthToken();
+        if (!token) {
+            window.location.href = 'Login page.html'; 
+            throw new Error("User not authenticated");
+        }
+
+        const headers = {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`,
+            ...options.headers,
+        };
+
+        const response = await fetch(url, { ...options, headers });
+
+        if (response.status === 401) {
+            window.location.href = 'Login page.html';
+            throw new Error("Session expired");
+        }
+        return response;
+    }
+
 
     async function fetchUserSettings() {
         const token = getAuthToken();
@@ -1707,65 +1738,23 @@ function toggleSidebar() {
         localStorage.setItem("allChats_ClassMate", JSON.stringify(allChats));
     }
 
-    async function loadChats() {
-        try {
-            const token = getAuthToken();
-            if (!token) {
-                showToast("Please log in to access your chats", "error");
-                return;
-            }
-
-            const response = await fetch(`${serverUrl}/api/chats`, {
-                headers: { 'Authorization': `Bearer ${token}` }
-            });
-
-            if (response.status === 401) {
-                showToast("Session expired. Please log in again.", "error");
-                localStorage.removeItem('auth_token');
-                return;
-            }
-
-            if (!response.ok) {
-                throw new Error(`HTTP error! status: ${response.status}`);
-            }
-
-            const chats = await response.json();
-            allChats = {}; // Reset allChats
-            
-            // Convert API response to our local format
-            chats.forEach(chat => {
-                allChats[chat.id] = {
-                    id: chat.id,
-                    title: chat.title,
-                    lastActivityTimestamp: new Date(chat.updated_at),
-                    messages: chat.messages || []
-                };
-            });
-
-            if (Object.keys(allChats).length === 0) {
-                await startNewChat(false);
-            } else {
-                const lastChatId = localStorage.getItem("currentChatId_ClassMate");
-                if (lastChatId && allChats[lastChatId]) {
-                    await switchChat(lastChatId);
-                } else {
-                    await switchChat(Object.keys(allChats)[0]);
-                }
-            }
-            
-            renderChatHistory();
-        } catch (error) {
-            console.error("Error loading chats:", error);
-            showToast("Failed to load chats. Using local storage.", "error");
-            // Fallback to local storage if API fails
-            const storedChats = localStorage.getItem("allChats_ClassMate");
-            if (storedChats) {
-                allChats = JSON.parse(storedChats);
-            } else {
-                allChats = {};
-                await startNewChat(false);
-            }
+    function loadChats() {
+        const storedChats = localStorage.getItem("allChats_ClassMate");
+        if (storedChats) {
+            allChats = JSON.parse(storedChats);
+        } else {
+            allChats = {};
         }
+        if (Object.keys(allChats).length === 0) {
+            startNewChat(false); 
+        }
+        const lastChatId = localStorage.getItem("currentChatId_ClassMate");
+        if (lastChatId && allChats[lastChatId]) {
+            switchChat(lastChatId);
+        } else if (Object.keys(allChats).length > 0) {
+            switchChat(Object.keys(allChats)[0]); 
+        }
+        renderChatHistory(); 
     }
 
     function renderChatHistory(filterTerm = "") {
@@ -1883,131 +1872,48 @@ function toggleSidebar() {
         renderChatHistory(sidebarSearchInput.value);
     });
 
-    async function startNewChat(switchToNew = true) {
-        try {
-            const token = getAuthToken();
-            let newChatId;
-            
-            if (token) {
-                // Create chat in DB
-                const response = await fetch(`${serverUrl}/api/chats`, {
-                    method: "POST",
-                    headers: {
-                        'Authorization': `Bearer ${token}`,
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify({
-                        title: "New Chat"  // Make sure to send the expected structure
-                    })
-                });
-                
-                if (!response.ok) {
-                    const errorData = await response.json();
-         
-                }
-                
-                const newChat = await response.json();
-                newChatId = newChat.id;
-                allChats[newChatId] = {
-                    id: newChatId,
-                    title: newChat.title,
-                    lastActivityTimestamp: new Date(newChat.updated_at),
-                    messages: []
-                };
-            } else {
-                // Fallback to local storage
-                newChatId = `chat_${Date.now()}`;
-                allChats[newChatId] = {
-                    id: newChatId,
-                    title: "New Chat",
-                    lastActivityTimestamp: Date.now(),
-                    messages: []
-                };
-            }
-            
-            if (switchToNew) {
-                currentChatId = newChatId;
-                localStorage.setItem("currentChatId_ClassMate", currentChatId);
-                chatContainer.innerHTML = "";
-                userInput.value = "";
-                userInput.dispatchEvent(new Event("input"));
-                sendButton.disabled = true;
-                
-                if (isToDoListModeActive) {
-                    isToDoListModeActive = false;
-                    todoListOption.classList.remove("active");
-                    userInput.placeholder = "Ask ClassMate";
-                }
-            }
-            
-            saveChats();
-            renderChatHistory();
-            
-            if (switchToNew) {
-                 const newLi = chatHistoryList.querySelector(`[data-chat-id="${newChatId}"]`);
-                if (newLi) {
-                    document.querySelectorAll("#chat-history-list li.active").forEach(el => el.classList.remove("active"));
-                    newLi.classList.add("active");
-                }
-            }
-        } catch (error) {
-            console.error("Error starting new chat:", error);
-        showToast("Failed to create new chat. Using local storage.", "error");
-        
-        // Fallback to local storage
-        newChatId = `chat_${Date.now()}`;
+    function startNewChat(switchToNew = true) {
+        if (currentChatId && allChats[currentChatId] && allChats[currentChatId].messages.length === 0) {
+            // If current chat is new and empty, don't create another one, just stay
+             if (switchToNew) { // If called with switchToNew=true, it means user explicitly clicked "New Chat"
+                // Proceed to create a new one even if current is empty, but only if currentChatId is not null
+                 if(currentChatId === null) { /* no chat exists, so proceed */ }
+                 else { /* a chat exists, could be empty, but new chat was clicked */ }
+             } else { // if called with switchToNew=false (e.g. initial load, or after delete), don't create if current is empty
+                 return;
+             }
+        }
+
+
+        const newChatId = `chat_${Date.now()}`;
         allChats[newChatId] = {
-            id: newChatId,
-            title: "New Chat",
+            title: "New Chat", 
             lastActivityTimestamp: Date.now(),
             messages: []
         };
-        
         if (switchToNew) {
             currentChatId = newChatId;
             localStorage.setItem("currentChatId_ClassMate", currentChatId);
-            chatContainer.innerHTML = "";
+            chatContainer.innerHTML = ""; 
+            userInput.value = "";
+            userInput.dispatchEvent(new Event("input")); 
+            sendButton.disabled = true;
+            if (isToDoListModeActive) {
+                isToDoListModeActive = false;
+                todoListOption.classList.remove("active");
+                userInput.placeholder = "Ask ClassMate";
+            }
         }
-        
         saveChats();
         renderChatHistory();
+        if (switchToNew) {
+             const newLi = chatHistoryList.querySelector(`[data-chat-id="${newChatId}"]`);
+             if (newLi) {
+                 document.querySelectorAll("#chat-history-list li.active").forEach(el => el.classList.remove("active"));
+                 newLi.classList.add("active");
+             }
         }
-    }
-
-    async function createChatInDB() {
-        try {
-            const token = getAuthToken();
-            if (!token) return;
-
-            const response = await fetch(`${serverUrl}/api/chats`, {
-                method: "POST",
-                headers: {
-                    'Authorization': `Bearer ${token}`,
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({
-                    title: allChats[currentChatId].title || "New Chat"
-                })
-            });
-
-            if (!response.ok) {
-                throw new Error(`HTTP error! status: ${response.status}`);
-            }
-
-            const newChat = await response.json();
-            // Update local ID with DB ID
-            allChats[newChat.id] = allChats[currentChatId];
-            delete allChats[currentChatId];
-            currentChatId = newChat.id;
-            localStorage.setItem("currentChatId_ClassMate", currentChatId);
-            
-            // Save all messages to the new chat
-            for (const msg of allChats[currentChatId].messages) {
-                await saveMessage(msg.sender, msg.content);
-            }
-        } catch (error) {
-            console.error("Error creating chat in DB:", error);
-        }
+        console.log("Started new chat:", newChatId);
     }
     
     function switchChat(chatId) {
@@ -2262,61 +2168,31 @@ document.querySelectorAll('.dialog-modal').forEach(dialog => {
         chatContainer.scrollTop = chatContainer.scrollHeight; 
     }
     
-    async function saveMessage(sender, content) {
-        if (!currentChatId) {
-            console.error("No active chat selected.");
-            return;
+    function saveMessage(sender, content) {
+        if (!currentChatId || !allChats[currentChatId]) {
+            console.error("Cannot save message, no active chat selected.");
+            if (Object.keys(allChats).length === 0) {
+                startNewChat();
+            } else if (!currentChatId) {
+                switchChat(Object.keys(allChats)[0]);
+            } else if (!allChats[currentChatId]) { 
+                 console.error(`Current chat ID ${currentChatId} is invalid.`);
+                 switchChat(Object.keys(allChats)[0]); 
+            }
+            // After potential recovery, try saving again if chat is now valid
+            if (currentChatId && allChats[currentChatId]) {
+                 allChats[currentChatId].messages.push({ sender, content });
+                 saveChats();
+            } else {
+                 console.error("Failed to save message even after recovery attempt.");
+            }
+            return; 
         }
-
-        // First update local state
-        if (!allChats[currentChatId]) {
-            allChats[currentChatId] = {
-                id: currentChatId,
-                title: "New Chat",
-                messages: [],
-                lastActivityTimestamp: new Date()
-            };
-        }
-        
         allChats[currentChatId].messages.push({ sender, content });
-        allChats[currentChatId].lastActivityTimestamp = new Date();
-        
-        // Save to local storage as fallback
-        localStorage.setItem("allChats_ClassMate", JSON.stringify(allChats));
-        
-        try {
-            const token = getAuthToken();
-            if (!token) return;
-
-            // If this is a new chat (not yet in DB), create it first
-            if (currentChatId.startsWith("chat_")) {
-                await createChatInDB();
-                return; // The message will be saved on next attempt
-            }
-
-            // Save message to DB
-            const response = await fetch(`${serverUrl}/api/chats/${currentChatId}/messages`, {
-                method: "POST",
-                headers: {
-                    'Authorization': `Bearer ${token}`,
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({
-                    sender: sender,
-                    content: content
-                })
-            });
-
-            if (!response.ok) {
-                throw new Error(`HTTP error! status: ${response.status}`);
-            }
-        } catch (error) {
-            console.error("Error saving message to DB:", error);
-            // Continue with local storage only
-        }
+        saveChats();
     }
 
-async function sendMessage() {
+    async function sendMessage() {
         const messageText = userInput.value.trim();
         if (!messageText || messageBeingSent) return;
 
@@ -2620,40 +2496,49 @@ window.addEventListener("resize", () => {
         return hasGoal && (hasPhase || hasTasks) && hasStructure;
     }
 
-    function saveToTaskMaster(content) {
+    async function saveToTaskMaster(content) {
+        const newTask = {
+            text: content,
+            pinned: false,
+            highlighted: false,
+            checkbox_states: {}
+        };
         try {
-            const tasks = JSON.parse(localStorage.getItem("tasks")) || [];
-            tasks.push({ 
-                text: content, 
-                pinned: false,
-                highlighted: false,
-                id: Date.now().toString() 
+            const response = await fetchWithAuth(`${API_URL}/api/tasks`, {
+                method: 'POST',
+                body: JSON.stringify([newTask]) // API expects an array of tasks
             });
-            localStorage.setItem("tasks", JSON.stringify(tasks));
+            if (!response.ok) {
+                throw new Error('Failed to save the task to the database.');
+            }
             showToast("To-do list saved to Task Manager!");
-        } catch (e) {
-            console.error("Failed to save to Task Manager:", e);
+        } catch (error) {
+            console.error("Failed to save to Task Manager:", error);
             showToast("Error saving To-Do list.", "error");
         }
     }
 
-    function saveToNotes(title, content) {
+    async function saveToNotes(title, content) {
+        const newNote = {
+            title: title.substring(0, 50) || "Untitled Note",
+            content: content,
+            type: "text",
+            pinned: false,
+            highlighted: false,
+            listItems: [],
+            attachments: []
+        };
         try {
-            const notes = JSON.parse(localStorage.getItem("notes")) || [];
-            const timestamp = new Date().toISOString();
-            notes.push({ 
-                id: Date.now().toString(),
-                title: title.substring(0, 50) || "Untitled Note", 
-                content: content,
-                created: timestamp,
-                updated: timestamp,
-                type: "text", 
-                timestamp: timestamp 
+            const response = await fetchWithAuth(`${API_URL}/api/notes`, {
+                method: 'POST',
+                body: JSON.stringify(newNote)
             });
-            localStorage.setItem("notes", JSON.stringify(notes));
-            showToast("Saved to notes!");
-        } catch (e) {
-            console.error("Failed to save note:", e);
+            if (!response.ok) {
+                throw new Error('Failed to save the note to the database.');
+            }
+            showToast("Saved to Notes!");
+        } catch (error) {
+            console.error("Failed to save note:", error);
             showToast("Error saving note.", "error");
         }
     }
