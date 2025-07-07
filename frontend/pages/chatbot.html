@@ -2161,12 +2161,31 @@ document.querySelectorAll('.dialog-modal').forEach(dialog => {
     });
 
     function addMessageToUI(sender, content) {
+        // Ensure we have a valid chat context
+        if (!currentChatId) {
+            console.error("No currentChatId set, cannot add message");
+            return;
+        }
+
+        // If chat doesn't exist in allChats, initialize it
+        if (!allChats[currentChatId]) {
+            allChats[currentChatId] = {
+                id: currentChatId,
+                title: "New Chat",
+                messages: [],
+                lastActivityTimestamp: Date.now()
+            };
+        }
+
         const chat = allChats[currentChatId];
         if (chat) {
             if (sender === "user" && (!chat.title || chat.title === "New Chat")) { 
                 const potentialTitle = content.trim().substring(0, 30);
                 chat.title = potentialTitle || chat.title; 
             }
+
+            // Add message to chat
+            chat.messages.push({ sender, content });
             chat.lastActivityTimestamp = Date.now();
             saveChats();
             renderChatHistory(); 
@@ -2338,16 +2357,22 @@ document.querySelectorAll('.dialog-modal').forEach(dialog => {
             }, getAuthToken());
 
             // Get AI response
-            const response = await fetch('/api/chat', {
+            const response = await fetch(`${API_URL}/api/chat`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
                     'Authorization': `Bearer ${getAuthToken()}`
                 },
-                body: JSON.stringify({ prompt: message })
+                body: JSON.stringify({ 
+                    prompt: message,
+                    chatId: currentChatId
+                 })
             });
             
-            if (!response.ok) throw new Error('AI service error');
+            if (!response.ok) {
+                const errorData = await response.json().catch(() => ({}));
+                throw new Error(errorData.message || 'AI service error');
+            }
             
             const data = await response.json();
             const aiReply = data.reply;
@@ -2360,15 +2385,16 @@ document.querySelectorAll('.dialog-modal').forEach(dialog => {
             }, getAuthToken());
 
             // Update chat history
+        } catch (error) {
+            console.error('Error sending message:', error);
+            addMessageToUI("assistant", "Sorry, I encountered an error. Please try again.");
+        } finally {
             const chatIndex = chatHistory.findIndex(chat => chat.id === currentChatId);
             if (chatIndex !== -1) {
                 chatHistory[chatIndex].updated_at = new Date();
                 chatHistory[chatIndex].preview = aiReply.slice(0, 50) + (aiReply.length > 50 ? "..." : "");
                 renderChatHistory();
             }
-        } catch (error) {
-            console.error('Error sending message:', error);
-            addMessageToUI("assistant", "Sorry, I encountered an error. Please try again.");
         }
     }
 
@@ -2472,6 +2498,14 @@ document.querySelectorAll('.dialog-modal').forEach(dialog => {
                 loadChats(token)
             // ]);
             
+            // Ensure we have a valid chat context
+            if (!currentChatId && chatHistory.length > 0) {
+                currentChatId = chatHistory[0].id;
+            }
+            
+            if (!currentChatId) {
+                await startNewChat(true, token);
+            }
             
             if(pageLoader) {
                 pageLoader.style.opacity = '0';
@@ -2481,9 +2515,28 @@ document.querySelectorAll('.dialog-modal').forEach(dialog => {
             const savedState = localStorage.getItem("sidebarState_ClassMate");
             const mobileView = isMobileView();
 
-            // ... (rest of your existing code)
+            if (mobileView) {
+                sidebar.classList.remove("open");
+                sidebar.classList.remove("collapsed"); 
+                appContainer.classList.remove("sidebar-hidden");
+                sidebarOverlay.style.display = "none";
+            } else {
+                if (savedState === "open") {
+                    sidebar.classList.remove("collapsed");
+                    appContainer.classList.remove("sidebar-hidden");
+                } else { // Default to collapsed on desktop if no state or "collapsed"
+                    sidebar.classList.add("collapsed");
+                    appContainer.classList.add("sidebar-hidden");
+                }
+                sidebar.classList.remove("open"); 
+                sidebarOverlay.style.display = "none";
+            }
             
-            isInitialLoad = false;
+            updateToggleButtonVisibility(); 
+            userInput.dispatchEvent(new Event("input")); 
+            sendButton.disabled = true; 
+            isInitialLoad = false; 
+            
             checkForQueryParameters();
         } catch (error) {
             console.error('Initialization failed:', error);
