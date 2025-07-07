@@ -1498,29 +1498,36 @@ Remember to break your goals into phases and tasks.`;
 
     // Helper function for API calls
     async function apiCall(endpoint, method, body = null, token) {
+        if (!token) {
+            throw new Error("No authentication token provided");
+        }
         const url = `${API_URL}${endpoint}`; 
         const headers = {
             'Content-Type': 'application/json',
             'Authorization': `Bearer ${token}`
         };
 
-        const config = {
-            method,
-            headers,
-        };
+        try {
+            const response = await fetch(url, {
+                method,
+                headers,
+                body: body ? JSON.stringify(body) : null
+            });
 
-        if (body) {
-            config.body = JSON.stringify(body);
+            if (response.status === 404) {
+                throw new Error("Resource not found");
+            }
+
+            if (!response.ok) {
+                const error = await response.json().catch(() => ({}));
+                throw new Error(error.detail || 'API request failed');
+            }
+
+            return response.json();
+        } catch (error) {
+            console.error(`API call failed to ${url}:`, error);
+            throw error;
         }
-
-        const response = await fetch(url, config);
-        
-        if (!response.ok) {
-            const error = await response.json();
-            throw new Error(error.detail || 'API request failed');
-        }
-
-        return response.json();
     }
 
     // Chat-specific API helpers
@@ -1807,18 +1814,23 @@ function toggleSidebar() {
             
             // Sort by updated_at descending
             chatHistory.sort((a, b) => b.updated_at - a.updated_at);
+
+            renderChatHistory();
             
             // Restore last chat if available
-            const lastChatId = localStorage.getItem("currentChatId_ClassMate");
-            if (lastChatId && chatHistory.some(chat => chat.id === lastChatId)) {
-                await switchChat(lastChatId, token);
-            } else if (chatHistory.length > 0) {
-                await switchChat(chatHistory[0].id, token);
+            if (chatHistory.length > 0) {
+                const lastChatId = localStorage.getItem("currentChatId_ClassMate");
+                const validLastChat = chatHistory.some(chat => chat.id === lastChatId);
+                
+                if (validLastChat) {
+                    await switchChat(lastChatId, token);
+                } else {
+                    await switchChat(chatHistory[0].id, token);
+                }
             } else {
+                // No chats exist - create a new one
                 await startNewChat(true, token);
             }
-            
-            renderChatHistory();
         } catch (error) {
             console.error('Failed to load chats:', error);
             // Fallback to creating a new chat
@@ -1991,9 +2003,12 @@ function formatDate(date) {
 
     
     async function switchChat(chatId) {
+        if (!chatId) {
+            throw new Error("No chat ID provided");
+        }
         try {
             const token = getAuthToken();
-            const chat = await apiCall(`/api/chats/${chatId}`, 'GET', null, token);
+            const chat = await getChat(chatId, token);
             
             currentChatId = chatId;
             localStorage.setItem("currentChatId_ClassMate", chatId);
@@ -2020,7 +2035,7 @@ function formatDate(date) {
             });
         } catch (error) {
             console.error("Failed to switch chat:", error);
-            alert("Failed to load chat. Please try again.");
+            await startNewChat(true, token);
         }
     }
 
@@ -2434,8 +2449,11 @@ document.querySelectorAll('.dialog-modal').forEach(dialog => {
             if (!token) {
                 throw new Error("No authentication token found");
             }
-            await fetchUserSettings();
-            await loadChats(token);
+            await Promise.all([
+                fetchUserSettings(),
+                loadChats(token)
+            ]);
+            
             
             if(pageLoader) {
                 pageLoader.style.opacity = '0';
