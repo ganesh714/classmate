@@ -1561,6 +1561,14 @@ Remember to break your goals into phases and tasks.`;
 
     function getAuthToken() {
         return localStorage.getItem('auth_token');
+        if (!token) {
+            // Redirect to login if in standalone mode
+            if (window.location.pathname.includes('chatbot.html')) {
+                window.location.href = 'Login page.html';
+            }
+            throw new Error("User not authenticated");
+        }
+        return token;
     }
 
     async function fetchWithAuth(url, options = {}) {
@@ -1805,34 +1813,43 @@ function toggleSidebar() {
     async function loadChats(token) {
         try {
             const chats = await getChats(token);
+            if (!chats || chats.length === 0) {
+                // No chats exist - create a default one
+                return await startNewChat(true, token);
+            }
+            // Process and sort chats
             chatHistory = chats.map(chat => ({
-                id: chat.id,
+                id: chat._id || chat.id, // Handle both _id (MongoDB) and id formats
                 title: chat.title,
-                updated_at: new Date(chat.updated_at),
+                updated_at: new Date(chat.updated_at || chat.lastActivityTimestamp),
                 preview: chat.preview
-            }));
-            
-            // Sort by updated_at descending
-            chatHistory.sort((a, b) => b.updated_at - a.updated_at);
+            })).sort((a, b) => b.updated_at - a.updated_at);
+
+           
 
             renderChatHistory();
-            
-            // Restore last chat if available
+
+            // Load the most recent chat by default
             if (chatHistory.length > 0) {
-                const lastChatId = localStorage.getItem("currentChatId_ClassMate");
-                const validLastChat = chatHistory.some(chat => chat.id === lastChatId);
-                
-                if (validLastChat) {
-                    await switchChat(lastChatId, token);
-                } else {
-                    await switchChat(chatHistory[0].id, token);
-                }
-            } else {
-                // No chats exist - create a new one
-                await startNewChat(true, token);
+                await switchChat(chatHistory[0].id);
             }
+            
+            // // Restore last chat if available
+            // if (chatHistory.length > 0) {
+            //     const lastChatId = localStorage.getItem("currentChatId_ClassMate");
+            //     const validLastChat = chatHistory.some(chat => chat.id === lastChatId);
+                
+            //     if (validLastChat) {
+            //         await switchChat(lastChatId, token);
+            //     } else {
+            //         await switchChat(chatHistory[0].id, token);
+            //     }
+            // } else {
+            //     // No chats exist - create a new one
+            //     await startNewChat(true, token);
+            // }
         } catch (error) {
-            console.error('Failed to load chats:', error);
+            console.error('Failed to load chats:', error,chatHistory[0]);
             // Fallback to creating a new chat
             await startNewChat(true, token);
         }
@@ -2004,7 +2021,8 @@ function formatDate(date) {
     
     async function switchChat(chatId) {
         if (!chatId) {
-            throw new Error("No chat ID provided");
+            console.error("Switch chat called without ID");
+            return;
         }
         try {
             const token = getAuthToken();
@@ -2449,10 +2467,10 @@ document.querySelectorAll('.dialog-modal').forEach(dialog => {
             if (!token) {
                 throw new Error("No authentication token found");
             }
-            await Promise.all([
+            // await Promise.all([
                 fetchUserSettings(),
                 loadChats(token)
-            ]);
+            // ]);
             
             
             if(pageLoader) {
