@@ -1417,6 +1417,7 @@
 
 
     let currentChatId = null;
+    let chatHistory = [];
     let allChats = {}; 
     let recognition = null;
     let isRecording = false;
@@ -1494,6 +1495,61 @@ Phase 2: [e.g., Data Structures and Control Flow]
 (Add more phases and tasks as appropriate for the user\'s request)
 
 Remember to break your goals into phases and tasks.`;
+
+    // Helper function for API calls
+    async function apiCall(url, method, body = null, token) {
+        const headers = {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+        };
+
+        const config = {
+            method,
+            headers,
+        };
+
+        if (body) {
+            config.body = JSON.stringify(body);
+        }
+
+        const response = await fetch(url, config);
+        
+        if (!response.ok) {
+            const error = await response.json();
+            throw new Error(error.detail || 'API request failed');
+        }
+
+        return response.json();
+    }
+
+    // Chat-specific API helpers
+    async function createChat(title, token) {
+        return apiCall('/api/chats', 'POST', { title }, token);
+    }
+
+    async function getChats(token) {
+        return apiCall('/api/chats', 'GET', null, token);
+    }
+
+    async function getChat(chatId, token) {
+        return apiCall(`/api/chats/${chatId}`, 'GET', null, token);
+    }
+
+    async function addMessage(chatId, message, token) {
+        return apiCall(`/api/chats/${chatId}/messages`, 'POST', message, token);
+    }
+
+    async function updateChatTitle(chatId, title, token) {
+        return apiCall(`/api/chats/${chatId}`, 'PUT', { title }, token);
+    }
+
+    async function deleteChat(chatId, token) {
+        return apiCall(`/api/chats/${chatId}`, 'DELETE', null, token);
+    }
+
+    async function deleteAllChats(token) {
+        return apiCall('/api/chats', 'DELETE', null, token);
+    }
 
     function getAuthToken() {
         return localStorage.getItem('auth_token');
@@ -1738,55 +1794,71 @@ function toggleSidebar() {
         localStorage.setItem("allChats_ClassMate", JSON.stringify(allChats));
     }
 
-    function loadChats() {
-        const storedChats = localStorage.getItem("allChats_ClassMate");
-        if (storedChats) {
-            allChats = JSON.parse(storedChats);
-        } else {
-            allChats = {};
+    async function loadChats(token) {
+        try {
+            const chats = await getChats(token);
+            chatHistory = chats.map(chat => ({
+                id: chat.id,
+                title: chat.title,
+                updated_at: new Date(chat.updated_at),
+                preview: chat.preview
+            }));
+            
+            // Sort by updated_at descending
+            chatHistory.sort((a, b) => b.updated_at - a.updated_at);
+            
+            // Restore last chat if available
+            const lastChatId = localStorage.getItem("currentChatId_ClassMate");
+            if (lastChatId && chatHistory.some(chat => chat.id === lastChatId)) {
+                await switchChat(lastChatId, token);
+            } else if (chatHistory.length > 0) {
+                await switchChat(chatHistory[0].id, token);
+            } else {
+                await startNewChat(true, token);
+            }
+            
+            renderChatHistory();
+        } catch (error) {
+            console.error('Failed to load chats:', error);
+            // Fallback to creating a new chat
+            await startNewChat(true, token);
         }
-        if (Object.keys(allChats).length === 0) {
-            startNewChat(false); 
-        }
-        const lastChatId = localStorage.getItem("currentChatId_ClassMate");
-        if (lastChatId && allChats[lastChatId]) {
-            switchChat(lastChatId);
-        } else if (Object.keys(allChats).length > 0) {
-            switchChat(Object.keys(allChats)[0]); 
-        }
-        renderChatHistory(); 
     }
 
-    function renderChatHistory(filterTerm = "") {
-        chatHistoryList.innerHTML = ""; 
-        const searchTerm = filterTerm.toLowerCase().trim();
-        
-        const filteredChatIds = Object.keys(allChats).filter(chatId => {
-            const chat = allChats[chatId];
-            const title = (chat.title || `Chat ${chatId.substring(0, 4)}`).toLowerCase();
-            return title.includes(searchTerm);
-        });
+    async function renderChatHistory(filterTerm = "") {
+        try {
+            // Fetch chats from API
+            const token = getAuthToken();
+            const chats = await apiCall('/api/chats', 'GET', null, token);
+            
+            // Process and filter chats
+            const searchTerm = filterTerm.toLowerCase().trim();
+            const filteredChats = chats.filter(chat => {
+                const title = (chat.title || `Chat ${chat.id.substring(0, 4)}`).toLowerCase();
+                return title.includes(searchTerm);
+            }).reverse(); // Show newest first
+            
+            // Clear existing list
+            chatHistoryList.innerHTML = "";
+            
+            // Render each chat
+            filteredChats.forEach(chat => {
+                const li = document.createElement("li");
+                li.dataset.chatId = chat.id;
+                li.classList.toggle("active", chat.id === currentChatId);
 
-        const chatIdsToRender = filteredChatIds.reverse(); 
+                // Title
+                const titleSpan = document.createElement("span");
+                titleSpan.classList.add("chat-item-title");
+                titleSpan.textContent = chat.title || `Chat ${chat.id.substring(0, 4)}`;
+                li.appendChild(titleSpan);
 
-        chatIdsToRender.forEach(chatId => {
-            const chat = allChats[chatId];
-            const li = document.createElement("li");
-            li.dataset.chatId = chatId;
-            li.classList.toggle("active", chatId === currentChatId);
-
-            const titleSpan = document.createElement("span");
-            titleSpan.classList.add("chat-item-title");
-            titleSpan.textContent = chat.title || `Chat ${chatId.substring(0, 4)}`;
-            li.appendChild(titleSpan);
-
-            if (chat.lastActivityTimestamp) {
+                // Date formatting (using updated_at from API)
                 const dateSpan = document.createElement("span");
                 dateSpan.classList.add("chat-item-date");
-                const activityDate = new Date(chat.lastActivityTimestamp);
+                const activityDate = new Date(chat.updated_at);
                 const now = new Date();
-                const oneDay = 24 * 60 * 60 * 1000; 
-                const diffDays = Math.round(Math.abs((now - activityDate) / oneDay));
+                const oneDay = 24 * 60 * 60 * 1000;
                 const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
                 const startOfActivityDay = new Date(activityDate.getFullYear(), activityDate.getMonth(), activityDate.getDate());
                 const daysSinceActivity = Math.round((startOfToday - startOfActivityDay) / oneDay);
@@ -1798,66 +1870,78 @@ function toggleSidebar() {
                 } else {
                     const day = String(activityDate.getDate()).padStart(2, "0");
                     const month = String(activityDate.getMonth() + 1).padStart(2, "0"); 
-                    const year = String(activityDate.getFullYear()).slice(-2); 
+                    const year = String(activityDate.getFullYear()).slice(-2);
                     dateSpan.textContent = `${day}/${month}/${year}`;
                 }
                 li.appendChild(dateSpan);
-            }
 
-            const menuContainer = document.createElement("div");
-            menuContainer.classList.add("chat-item-menu-container");
+                // Menu (same as before but updated for API)
+                const menuContainer = document.createElement("div");
+                menuContainer.classList.add("chat-item-menu-container");
 
-            const menuBtn = document.createElement("button");
-            menuBtn.classList.add("chat-item-menu-btn");
-            menuBtn.innerHTML = "<i class=\"fas fa-ellipsis-v\"></i>"; 
-            menuBtn.title = "Options";
-            menuContainer.appendChild(menuBtn);
+                const menuBtn = document.createElement("button");
+                menuBtn.classList.add("chat-item-menu-btn");
+                menuBtn.innerHTML = '<i class="fas fa-ellipsis-v"></i>';
+                menuBtn.title = "Options";
+                menuContainer.appendChild(menuBtn);
 
-            const dropdown = document.createElement("div");
-            dropdown.classList.add("chat-item-menu-dropdown");
+                const dropdown = document.createElement("div");
+                dropdown.classList.add("chat-item-menu-dropdown");
 
-            const renameItem = document.createElement("div");
-            renameItem.classList.add("chat-item-menu-item");
-            renameItem.innerHTML = "<i class=\"fas fa-pen\"></i> Rename";
-            renameItem.addEventListener("click", (e) => {
-                e.stopPropagation(); 
-                renameChat(chatId);
-                dropdown.classList.remove("show"); 
-            });
-            dropdown.appendChild(renameItem);
-
-            const deleteItem = document.createElement("div");
-            deleteItem.classList.add("chat-item-menu-item", "delete");
-            deleteItem.innerHTML = "<i class=\"fas fa-trash-alt\"></i> Delete";
-            deleteItem.addEventListener("click", (e) => {
-                e.stopPropagation(); 
-                deleteChat(chatId);
-                dropdown.classList.remove("show"); 
-            });
-            dropdown.appendChild(deleteItem);
-
-            menuContainer.appendChild(dropdown);
-            li.appendChild(menuContainer);
-
-            menuBtn.addEventListener("click", (e) => {
-                e.stopPropagation(); 
-                document.querySelectorAll(".chat-item-menu-dropdown.show").forEach(m => {
-                    if (m !== dropdown) m.classList.remove("show");
+                // Rename option
+                const renameItem = document.createElement("div");
+                renameItem.classList.add("chat-item-menu-item");
+                renameItem.innerHTML = '<i class="fas fa-pen"></i> Rename';
+                renameItem.addEventListener("click", async (e) => {
+                    e.stopPropagation();
+                    await renameChat(chat.id);
+                    dropdown.classList.remove("show");
                 });
-                dropdown.classList.toggle("show");
-            });
+                dropdown.appendChild(renameItem);
 
-            li.addEventListener("click", () => {
-                switchChat(chatId);
-                if (isMobileView() && sidebar.classList.contains("open")) {
-                    toggleSidebar();
-                }
-            });
+                // Delete option
+                const deleteItem = document.createElement("div");
+                deleteItem.classList.add("chat-item-menu-item", "delete");
+                deleteItem.innerHTML = '<i class="fas fa-trash-alt"></i> Delete';
+                deleteItem.addEventListener("click", async (e) => {
+                    e.stopPropagation();
+                    await deleteChat(chat.id);
+                    dropdown.classList.remove("show");
+                });
+                dropdown.appendChild(deleteItem);
 
-            chatHistoryList.appendChild(li);
-        });
+                menuContainer.appendChild(dropdown);
+                li.appendChild(menuContainer);
+
+                // Menu toggle
+                menuBtn.addEventListener("click", (e) => {
+                    e.stopPropagation();
+                    document.querySelectorAll(".chat-item-menu-dropdown.show").forEach(m => {
+                        if (m !== dropdown) m.classList.remove("show");
+                    });
+                    dropdown.classList.toggle("show");
+                });
+
+                // Chat selection
+                li.addEventListener("click", async () => {
+                    await switchChat(chat.id);
+                    if (isMobileView() && sidebar.classList.contains("open")) {
+                        toggleSidebar();
+                    }
+                });
+
+                chatHistoryList.appendChild(li);
+            });
+        } catch (error) {
+            console.error("Failed to render chat history:", error);
+            // Show error to user or fallback UI
+        }
     }
 
+function formatDate(date) {
+        // Implement your date formatting
+        return new Date(date).toLocaleString();
+    }
     sidebarSearchBtn.addEventListener("click", () => {
         sidebarSearchInput.classList.toggle("show");
         if (sidebarSearchInput.classList.contains("show")) {
@@ -1872,100 +1956,111 @@ function toggleSidebar() {
         renderChatHistory(sidebarSearchInput.value);
     });
 
-    function startNewChat(switchToNew = true) {
-        if (currentChatId && allChats[currentChatId] && allChats[currentChatId].messages.length === 0) {
-            // If current chat is new and empty, don't create another one, just stay
-             if (switchToNew) { // If called with switchToNew=true, it means user explicitly clicked "New Chat"
-                // Proceed to create a new one even if current is empty, but only if currentChatId is not null
-                 if(currentChatId === null) { /* no chat exists, so proceed */ }
-                 else { /* a chat exists, could be empty, but new chat was clicked */ }
-             } else { // if called with switchToNew=false (e.g. initial load, or after delete), don't create if current is empty
-                 return;
-             }
+    async function startNewChat(switchToNew = true, token) {
+        try {
+            const newChat = await createChat("New Chat", token);
+            
+            chatHistory.unshift({
+                id: newChat.id,
+                title: newChat.title,
+                updated_at: new Date(),
+                preview: null
+            });
+            
+            if (switchToNew) {
+                currentChatId = newChat.id;
+                localStorage.setItem("currentChatId_ClassMate", currentChatId);
+                chatContainer.innerHTML = "";
+                userInput.value = "";
+                userInput.dispatchEvent(new Event("input"));
+                sendButton.disabled = true;
+                
+                if (isToDoListModeActive) {
+                    isToDoListModeActive = false;
+                    todoListOption.classList.remove("active");
+                    userInput.placeholder = "Ask ClassMate";
+                }
+            }
+            
+            renderChatHistory();
+        } catch (error) {
+            console.error('Failed to create new chat:', error);
         }
+    }
 
-
-        const newChatId = `chat_${Date.now()}`;
-        allChats[newChatId] = {
-            title: "New Chat", 
-            lastActivityTimestamp: Date.now(),
-            messages: []
-        };
-        if (switchToNew) {
-            currentChatId = newChatId;
-            localStorage.setItem("currentChatId_ClassMate", currentChatId);
-            chatContainer.innerHTML = ""; 
+    
+    async function switchChat(chatId) {
+        try {
+            const token = getAuthToken();
+            const chat = await apiCall(`/api/chats/${chatId}`, 'GET', null, token);
+            
+            currentChatId = chatId;
+            localStorage.setItem("currentChatId_ClassMate", chatId);
+            chatContainer.innerHTML = "";
+            
+            // Add messages to UI
+            chat.messages.forEach(msg => {
+                addMessageToUI(msg.sender, msg.content);
+            });
+            
             userInput.value = "";
-            userInput.dispatchEvent(new Event("input")); 
+            userInput.dispatchEvent(new Event("input"));
             sendButton.disabled = true;
+            
             if (isToDoListModeActive) {
                 isToDoListModeActive = false;
                 todoListOption.classList.remove("active");
                 userInput.placeholder = "Ask ClassMate";
             }
+            
+            // Highlight the active chat
+            document.querySelectorAll('#chat-history-list li').forEach(li => {
+                li.classList.toggle('active', li.dataset.chatId === chatId);
+            });
+        } catch (error) {
+            console.error("Failed to switch chat:", error);
+            alert("Failed to load chat. Please try again.");
         }
-        saveChats();
-        renderChatHistory();
-        if (switchToNew) {
-             const newLi = chatHistoryList.querySelector(`[data-chat-id="${newChatId}"]`);
-             if (newLi) {
-                 document.querySelectorAll("#chat-history-list li.active").forEach(el => el.classList.remove("active"));
-                 newLi.classList.add("active");
-             }
-        }
-        console.log("Started new chat:", newChatId);
     }
-    
-    function switchChat(chatId) {
-        if (!allChats[chatId]) {
-            console.error("Chat ID not found:", chatId);
-            if (Object.keys(allChats).length > 0) {
-                switchChat(Object.keys(allChats)[0]);
-            } else {
-                startNewChat();
+
+
+    async function renameChat(chatId) {
+        const newTitle = prompt("Enter new chat title:");
+        if (newTitle) {
+            try {
+                const token = getAuthToken();
+                await apiCall(`/api/chats/${chatId}`, 'PUT', { title: newTitle }, token);
+                await renderChatHistory(); // Refresh the list
+            } catch (error) {
+                console.error("Failed to rename chat:", error);
+                alert("Failed to rename chat. Please try again.");
             }
-            return;
         }
-        currentChatId = chatId;
-        localStorage.setItem("currentChatId_ClassMate", currentChatId);
-        chatContainer.innerHTML = ""; 
-        allChats[currentChatId].messages.forEach(msg => addMessageToUI(msg.sender, msg.content));
-        renderChatHistory(); 
-        userInput.value = "";
-        userInput.dispatchEvent(new Event("input")); 
-        sendButton.disabled = true;
-        if (isToDoListModeActive) {
-            isToDoListModeActive = false;
-            todoListOption.classList.remove("active");
-            userInput.placeholder = "Ask ClassMate";
-        }
-        console.log("Switched to chat:", currentChatId);
     }
 
-    function renameChat(chatId) {
-    chatToRename = chatId;
-    const chat = allChats[chatId];
-    const dialog = document.getElementById('rename-dialog');
-    const input = document.getElementById('rename-input');
-    
-    input.value = chat.title || `Chat ${chatId.substring(0, 4)}`;
-    dialog.classList.add('show');
-    
-    setTimeout(() => {
-        input.focus();
-        input.select();
-    }, 100);
-}
-
-function deleteChat(chatId) {
-    chatToDelete = chatId;
-    const chat = allChats[chatId];
-    const dialog = document.getElementById('delete-dialog');
-    const textElement = document.getElementById('delete-confirm-text');
-    
-    textElement.textContent = `Are you sure you want to delete "${chat.title || 'this chat permanently'}"?`;
-    dialog.classList.add('show');
-}
+    async function deleteChat(chatId) {
+        if (confirm("Are you sure you want to delete this chat?")) {
+            try {
+                const token = getAuthToken();
+                await apiCall(`/api/chats/${chatId}`, 'DELETE', null, token);
+                
+                // If we deleted the current chat, switch to another
+                if (chatId === currentChatId) {
+                    const chats = await apiCall('/api/chats', 'GET', null, token);
+                    if (chats.length > 0) {
+                        await switchChat(chats[0].id);
+                    } else {
+                        await startNewChat();
+                    }
+                }
+                
+                await renderChatHistory(); // Refresh the list
+            } catch (error) {
+                console.error("Failed to delete chat:", error);
+                alert("Failed to delete chat. Please try again.");
+            }
+        }
+    }
 
 document.getElementById('rename-cancel-btn').addEventListener('click', () => {
     document.getElementById('rename-dialog').classList.remove('show');
@@ -2193,134 +2288,53 @@ document.querySelectorAll('.dialog-modal').forEach(dialog => {
     }
 
     async function sendMessage() {
-        const messageText = userInput.value.trim();
-        if (!messageText || messageBeingSent) return;
+        const message = userInput.value.trim();
+        if (!message || !currentChatId) return;
 
-        if (!currentChatId || !allChats[currentChatId]) {
-            console.error("sendMessage: No active chat session.");
-            addMessageToUI("bot", "Error: No active chat. Please start a new chat.");
-            saveMessage("bot", "Error: No active chat. Please start a new chat.");
-            return;
-        }
-
-        messageBeingSent = true; 
-        sendButton.disabled = true;
-        loadingIndicator.style.display = "flex";
+        // Add user message to UI immediately
+        addMessageToUI("user", message);
         userInput.value = "";
-        userInput.dispatchEvent(new Event("input")); 
-        userInput.placeholder = "ClassMate is thinking...";
-        userInput.disabled = true;
-
-        addMessageToUI("user", messageText);
-        saveMessage("user", messageText); 
-
-        // --- DYNAMIC PROMPT CONSTRUCTION ---
-        let basePromptForAPI = isToDoListModeActive ? todoListPrompt : defaultPromptBase;
-
-        if (currentUserSettings && currentUserSettings.chatbot_customization_enabled && !isToDoListModeActive) {
-            let customizationInstructions = "\n\n--- USER CUSTOMIZATION ---\n";
-            if (currentUserSettings.chatbot_nickname) {
-                customizationInstructions += `The user prefers to be called "${currentUserSettings.chatbot_nickname}". Please address them by this name.\n`;
-            } else {
-                customizationInstructions += "Address the user generally (e.g., 'User', or based on conversation context if no specific name preference is set).\n";
-            }
-
-            switch (currentUserSettings.chatbot_tone) {
-                case "professional_concise":
-                    customizationInstructions += "Adopt a professional and concise tone in your responses.\n";
-                    break;
-                case "humorous_witty":
-                    customizationInstructions += "Adopt a humorous and witty tone. Be creative and engaging, but remain helpful and on-topic.\n";
-                    break;
-                case "custom":
-                    if (!currentUserSettings.chatbot_custom_instructions) {
-                         customizationInstructions += "Maintain a friendly and supportive tone (default for custom with no specific instructions).\n";
-                    }
-                    // If custom_instructions exist, they will be added below and might dictate the tone.
-                    break;
-                default: // friendly_supportive or any other/undefined value
-                    customizationInstructions += "Maintain a friendly and supportive tone.\n";
-            }
-
-            if (currentUserSettings.chatbot_custom_instructions) {
-                customizationInstructions += `Adhere to the following user-provided guidelines for your responses: (dont cross ethics) "${currentUserSettings.chatbot_custom_instructions}"\n`;
-            }
-
-            if (currentUserSettings.chatbot_user_context) {
-                customizationInstructions += `Keep this user-specific context in mind: "${currentUserSettings.chatbot_user_context}"\n`;
-            }
-            customizationInstructions += "--- END USER CUSTOMIZATION ---\n";
-            basePromptForAPI += customizationInstructions;
-        }
-        // --- END DYNAMIC PROMPT CONSTRUCTION ---
-
-        const currentMessages = allChats[currentChatId]?.messages || [];
-        const historySlice = currentMessages.slice(-10); // Send last 10 messages (5 turns approx)
-        const conversationHistoryForAPI = historySlice
-            .map(msg => `${msg.sender === "user" ? "User" : "AI"}: ${msg.content}`)
-            .join("\n");
-
-        let finalPrompt;
-        if (isToDoListModeActive) {
-            finalPrompt = basePromptForAPI + "\n\nConversation History (leading to To-Do request):\n" + conversationHistoryForAPI;
-            // The user's latest message is already part of conversationHistoryForAPI as it's added before this function call.
-            // If needed, it could be explicitly added: finalPrompt += "\n\nUser's latest message for To-Do: " + messageText;
-        } else {
-            finalPrompt = basePromptForAPI + "\n\nConversation History:\n" + conversationHistoryForAPI;
-        }
+        sendButton.disabled = true;
 
         try {
-            const response = await fetch(`${serverUrl}/api/chat`, { 
-                method: "POST",
+            // Save user message to backend
+            await addMessage(currentChatId, {
+                sender: "user",
+                content: message
+            }, getAccessToken());
+
+            // Get AI response
+            const response = await fetch('/api/chat', {
+                method: 'POST',
                 headers: {
-                    "Content-Type": "application/json",
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${getAccessToken()}`
                 },
-                body: JSON.stringify({ prompt: finalPrompt }), 
+                body: JSON.stringify({ prompt: message })
             });
-
-            if (!response.ok) {
-                const errorText = await response.text();
-                throw new Error(`HTTP error! status: ${response.status}, message: ${errorText}`);
-            }
-
+            
+            if (!response.ok) throw new Error('AI service error');
+            
             const data = await response.json();
-            let botResponse = data.reply || "Sorry, I couldn\\'t process that.";            
-            if (isToDoListModeActive && botResponse.includes("Goal:") && botResponse.includes("Phase")) { 
-                const todoContainer = document.createElement("div");
-                todoContainer.classList.add("todo-list-container");
-                
-                const contentWrapper = document.createElement("div");
-                contentWrapper.classList.add("todo-list-content");
-                contentWrapper.innerHTML = marked.parse(botResponse); 
-                todoContainer.appendChild(contentWrapper);
-                
-                addMessageToUI("bot", todoContainer.outerHTML);
-                saveMessage("bot", todoContainer.outerHTML); 
+            const aiReply = data.reply;
 
-            } else {
-                addMessageToUI("bot", botResponse);
-                saveMessage("bot", botResponse);
+            // Add AI response to UI and backend
+            addMessageToUI("assistant", aiReply);
+            await addMessage(currentChatId, {
+                sender: "assistant",
+                content: aiReply
+            }, getAccessToken());
+
+            // Update chat history
+            const chatIndex = chatHistory.findIndex(chat => chat.id === currentChatId);
+            if (chatIndex !== -1) {
+                chatHistory[chatIndex].updated_at = new Date();
+                chatHistory[chatIndex].preview = aiReply.slice(0, 50) + (aiReply.length > 50 ? "..." : "");
+                renderChatHistory();
             }
-
-            if (allChats[currentChatId] && allChats[currentChatId].messages.length === 2 && allChats[currentChatId].title === "New Chat") { 
-                const potentialTitle = messageText.substring(0, 30); 
-                allChats[currentChatId].title = potentialTitle || "Chat"; 
-                saveChats();
-                renderChatHistory(); 
-            }
-
         } catch (error) {
-            console.error("Error sending message:", error);
-            const errorMsg = `Sorry, there was an error connecting to the assistant. Please ensure you're connected to a network and try again. (Details: ${error.message})`;
-            addMessageToUI("bot", errorMsg);
-            saveMessage("bot", errorMsg);
-        } finally {
-            messageBeingSent = false; 
-            userInput.disabled = false;
-            userInput.placeholder = isToDoListModeActive ? "Enter goal for To-Do List..." : "Ask ClassMate";
-            sendButton.disabled = userInput.value.trim() === ""; 
-            userInput.focus();
-            loadingIndicator.style.display = "none"; 
+            console.error('Error sending message:', error);
+            addMessageToUI("assistant", "Sorry, I encountered an error. Please try again.");
         }
     }
 
@@ -2412,43 +2426,29 @@ document.querySelectorAll('.dialog-modal').forEach(dialog => {
 
     async function initializeApp() {
         if(pageLoader) pageLoader.style.display = 'flex';
+        applyThemeSynchronized();
         
-        applyThemeSynchronized(); // Apply theme early, page loader bg depends on it.
-        
-        await fetchUserSettings(); // Fetch settings before loading chats or other initializations
-
-        if(pageLoader) {
-            pageLoader.style.opacity = '0';
-            setTimeout(() => { pageLoader.style.display = 'none'; }, 300); // Hide after transition
-        }
-        
-        loadChats(); 
-        const savedState = localStorage.getItem("sidebarState_ClassMate");
-        const mobileView = isMobileView();
-
-        if (mobileView) {
-            sidebar.classList.remove("open");
-            sidebar.classList.remove("collapsed"); 
-            appContainer.classList.remove("sidebar-hidden");
-            sidebarOverlay.style.display = "none";
-        } else {
-            if (savedState === "open") {
-                sidebar.classList.remove("collapsed");
-                appContainer.classList.remove("sidebar-hidden");
-            } else { // Default to collapsed on desktop if no state or "collapsed"
-                sidebar.classList.add("collapsed");
-                appContainer.classList.add("sidebar-hidden");
+        try {
+            const token = await fetchUserSettings();
+            await loadChats(token);
+            
+            if(pageLoader) {
+                pageLoader.style.opacity = '0';
+                setTimeout(() => { pageLoader.style.display = 'none'; }, 300);
             }
-            sidebar.classList.remove("open"); 
-            sidebarOverlay.style.display = "none";
-        }
-        
-        updateToggleButtonVisibility(); 
-        userInput.dispatchEvent(new Event("input")); 
-        sendButton.disabled = true; 
-        isInitialLoad = false; 
+            
+            const savedState = localStorage.getItem("sidebarState_ClassMate");
+            const mobileView = isMobileView();
 
-        checkForQueryParameters();
+            // ... (rest of your existing code)
+            
+            isInitialLoad = false;
+            checkForQueryParameters();
+        } catch (error) {
+            console.error('Initialization failed:', error);
+            if(pageLoader) pageLoader.style.display = 'none';
+            alert('Failed to initialize application. Please try again later.');
+        }
     }
 
 
