@@ -2302,14 +2302,14 @@ document.querySelectorAll('.dialog-modal').forEach(dialog => {
             await addMessage(currentChatId, {
                 sender: "user",
                 content: message
-            }, getAccessToken());
+            }, getAuthToken());
 
             // Get AI response
             const response = await fetch('/api/chat', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${getAccessToken()}`
+                    'Authorization': `Bearer ${getAuthToken()}`
                 },
                 body: JSON.stringify({ prompt: message })
             });
@@ -2324,7 +2324,7 @@ document.querySelectorAll('.dialog-modal').forEach(dialog => {
             await addMessage(currentChatId, {
                 sender: "assistant",
                 content: aiReply
-            }, getAccessToken());
+            }, getAuthToken());
 
             // Update chat history
             const chatIndex = chatHistory.findIndex(chat => chat.id === currentChatId);
