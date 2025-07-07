@@ -2430,7 +2430,11 @@ document.querySelectorAll('.dialog-modal').forEach(dialog => {
         applyThemeSynchronized();
         
         try {
-            const token = await fetchUserSettings();
+            const token = getAuthToken();
+            if (!token) {
+                throw new Error("No authentication token found");
+            }
+            await fetchUserSettings();
             await loadChats(token);
             
             if(pageLoader) {
@@ -2448,7 +2452,11 @@ document.querySelectorAll('.dialog-modal').forEach(dialog => {
         } catch (error) {
             console.error('Initialization failed:', error);
             if(pageLoader) pageLoader.style.display = 'none';
-            alert('Failed to initialize application. Please try again later.');
+            showToast('Failed to initialize. Please login again.', 'error');
+            // Redirect to login after a delay
+            setTimeout(() => {
+                window.location.href = 'Login page.html';
+            }, 2000);
         }
     }
 
