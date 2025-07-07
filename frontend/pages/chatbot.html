@@ -1497,7 +1497,8 @@ Phase 2: [e.g., Data Structures and Control Flow]
 Remember to break your goals into phases and tasks.`;
 
     // Helper function for API calls
-    async function apiCall(url, method, body = null, token) {
+    async function apiCall(endpoint, method, body = null, token) {
+        const url = `${API_URL}${endpoint}`; 
         const headers = {
             'Content-Type': 'application/json',
             'Authorization': `Bearer ${token}`
