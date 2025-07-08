@@ -2017,37 +2017,36 @@ function formatDate(date) {
         renderChatHistory(sidebarSearchInput.value);
     });
 
-    async function startNewChat(switchToNew = true, token) {
-        try {
-            const newChat = await createChat("New Chat", token);
-            
-            chatHistory.unshift({
-                id: newChat._id,
-                title: newChat.title,
-                updated_at: new Date(),
-                preview: null
-            });
-            
-            if (switchToNew) {
-                currentChatId = newChat._id;
-                localStorage.setItem("currentChatId_ClassMate", currentChatId);
-                chatContainer.innerHTML = "";
-                userInput.value = "";
-                userInput.dispatchEvent(new Event("input"));
-                sendButton.disabled = true;
-                
-                if (isToDoListModeActive) {
-                    isToDoListModeActive = false;
-                    todoListOption.classList.remove("active");
-                    userInput.placeholder = "Ask ClassMate";
-                }
-            }
-            
-            renderChatHistory();
-        } catch (error) {
-            console.error('Failed to create new chat:', error);
+    async function startNewChat(switchToNew = true) {
+        // prevent duplicate temp chats
+        if (currentChatId === 'temp_chat') return;
+
+        const tempId = 'temp_chat';
+
+        allChats[tempId] = {
+            id: tempId,
+            title: "New Chat",
+            messages: [],
+            lastActivityTimestamp: Date.now()
+        };
+
+        chatHistory.unshift({
+            id: tempId,
+            title: "New Chat",
+            updated_at: new Date(),
+            preview: null
+        });
+
+        if (switchToNew) {
+            currentChatId = tempId;
+            chatContainer.innerHTML = "";
+            userInput.value = "";
+            sendButton.disabled = true;
         }
+
+        renderChatHistory();
     }
+
 
     
     async function switchChat(chatId) {
@@ -2382,7 +2381,48 @@ document.querySelectorAll('.dialog-modal').forEach(dialog => {
         userInput.value = "";
         userInput.placeholder = "ClassMate is thinking...";
         userInput.disabled = true;
-    
+        
+        // If this is the first message in a temp chat, create a real one on the backend
+        if (currentChatId === 'temp_chat') {
+            try {
+                const token = getAuthToken();
+                const newChat = await createChat(messageText.substring(0, 30) || "New Chat", token);
+
+                // Migrate temp chat data
+                const tempMessages = allChats['temp_chat']?.messages || [];
+                delete allChats['temp_chat'];
+
+                currentChatId = newChat._id; // use real chat ID from backend
+                allChats[currentChatId] = {
+                    id: currentChatId,
+                    title: newChat.title,
+                    messages: [...tempMessages],
+                    lastActivityTimestamp: Date.now()
+                };
+
+                // Update chatHistory entry
+                const idx = chatHistory.findIndex(c => c.id === 'temp_chat');
+                if (idx !== -1) {
+                    chatHistory[idx].id = currentChatId;
+                } else {
+                    chatHistory.unshift({
+                        id: currentChatId,
+                        title: newChat.title,
+                        updated_at: new Date(),
+                        preview: null
+                    });
+                }
+
+                renderChatHistory();
+            } catch (e) {
+                console.error("Failed to create chat:", e);
+                showToast("Could not create chat. Try again.", "error");
+                messageBeingSent = false;
+                loadingIndicator.style.display = "none";
+                return;
+            }
+        }
+
         // Add message to UI immediately
         addMessageToUI("user", messageText);
         await addMessage(currentChatId, {
