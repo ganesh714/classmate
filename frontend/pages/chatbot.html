@@ -1544,12 +1544,17 @@ Remember to break your goals into phases and tasks.`;
                 throw new Error("Resource not found");
             }
 
+            if (response.status === 204) {
+                return null; // No content, return null or handle appropriately
+            }
+
             if (!response.ok) {
                 const error = await response.json().catch(() => ({}));
                 throw new Error(error.detail || 'API request failed');
             }
 
             return response.json();
+
         } catch (error) {
             console.error(`API call failed to ${url}:`, error);
             throw error;
@@ -1863,7 +1868,7 @@ function toggleSidebar() {
             // // Restore last chat if available
             // if (chatHistory.length > 0) {
             //     const lastChatId = localStorage.getItem("currentChatId_ClassMate");
-            //     const validLastChat = chatHistory.some(chat => chat.id === lastChatId);
+            //     const validLastChat = chatHistory.some(chat => chat._id === lastChatId);
                 
             //     if (validLastChat) {
             //         await switchChat(lastChatId, token);
@@ -1890,7 +1895,7 @@ function toggleSidebar() {
             // Process and filter chats
             const searchTerm = filterTerm.toLowerCase().trim();
             const filteredChats = chats.filter(chat => {
-                const title = (chat.title || `Chat ${chat.id.substring(0, 4)}`).toLowerCase();
+                const title = (chat.title || `Chat ${chat._id.substring(0, 4)}`).toLowerCase();
                 return title.includes(searchTerm);
             }).reverse(); // Show newest first
             
@@ -1900,13 +1905,13 @@ function toggleSidebar() {
             // Render each chat
             filteredChats.forEach(chat => {
                 const li = document.createElement("li");
-                li.dataset.chatId = chat.id;
-                li.classList.toggle("active", chat.id === currentChatId);
+                li.dataset.chatId = chat._id;
+                li.classList.toggle("active", chat._id === currentChatId);
 
                 // Title
                 const titleSpan = document.createElement("span");
                 titleSpan.classList.add("chat-item-title");
-                titleSpan.textContent = chat.title || `Chat ${chat.id.substring(0, 4)}`;
+                titleSpan.textContent = chat.title || `Chat ${chat._id.substring(0, 4)}`;
                 li.appendChild(titleSpan);
 
                 // Date formatting (using updated_at from API)
@@ -1950,7 +1955,7 @@ function toggleSidebar() {
                 renameItem.innerHTML = '<i class="fas fa-pen"></i> Rename';
                 renameItem.addEventListener("click", async (e) => {
                     e.stopPropagation();
-                    await renameChat(chat.id);
+                    await renameChat(chat._id);
                     dropdown.classList.remove("show");
                 });
                 dropdown.appendChild(renameItem);
@@ -1961,7 +1966,7 @@ function toggleSidebar() {
                 deleteItem.innerHTML = '<i class="fas fa-trash-alt"></i> Delete';
                 deleteItem.addEventListener("click", async (e) => {
                     e.stopPropagation();
-                    await deleteChat(chat.id);
+                    await deleteChat(chat._id);
                     dropdown.classList.remove("show");
                 });
                 dropdown.appendChild(deleteItem);
@@ -1980,7 +1985,7 @@ function toggleSidebar() {
 
                 // Chat selection
                 li.addEventListener("click", async () => {
-                    await switchChat(chat.id);
+                    await switchChat(chat._id);
                     if (isMobileView() && sidebar.classList.contains("open")) {
                         toggleSidebar();
                     }
@@ -2017,14 +2022,14 @@ function formatDate(date) {
             const newChat = await createChat("New Chat", token);
             
             chatHistory.unshift({
-                id: newChat.id,
+                id: newChat._id,
                 title: newChat.title,
                 updated_at: new Date(),
                 preview: null
             });
             
             if (switchToNew) {
-                currentChatId = newChat.id;
+                currentChatId = newChat._id;
                 localStorage.setItem("currentChatId_ClassMate", currentChatId);
                 chatContainer.innerHTML = "";
                 userInput.value = "";
