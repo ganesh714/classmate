@@ -2341,21 +2341,80 @@ document.querySelectorAll('.dialog-modal').forEach(dialog => {
     }
 
     async function sendMessage() {
-        const message = userInput.value.trim();
-        if (!message || !currentChatId) return;
-
-        // Add user message to UI immediately
-        addMessageToUI("user", message);
-        userInput.value = "";
+        const messageText = userInput.value.trim();
+        if (!messageText || messageBeingSent || !currentChatId) return;
+    
+        // UI State Management
+        messageBeingSent = true;
         sendButton.disabled = true;
-
+        loadingIndicator.style.display = "flex";
+        userInput.value = "";
+        userInput.placeholder = "ClassMate is thinking...";
+        userInput.disabled = true;
+    
+        // Add message to UI immediately
+        addMessageToUI("user", messageText);
+        await addMessage(currentChatId, {
+            sender: "user",
+            content: messageText
+        }, getAuthToken());
+    
         try {
-            // Save user message to backend
-            await addMessage(currentChatId, {
-                sender: "user",
-                content: message
-            }, getAuthToken());
-
+            // Get conversation history
+            const chat = await getChat(currentChatId, getAuthToken());
+            const historySlice = chat.messages.slice(-10); // Last 10 messages
+            const conversationHistory = historySlice
+                .map(msg => `${msg.sender === "user" ? "User" : "AI"}: ${msg.content}`)
+                .join("\n");
+    
+            // Construct prompt with customization
+            let basePrompt = isToDoListModeActive ? todoListPrompt : defaultPromptBase;
+            
+            // --- DYNAMIC CUSTOMIZATION LOGIC ---
+            if (currentUserSettings?.chatbot_customization_enabled && !isToDoListModeActive) {
+                let customizationInstructions = "\n\n--- USER CUSTOMIZATION ---\n";
+                
+                // Nickname handling
+                if (currentUserSettings.chatbot_nickname) {
+                    customizationInstructions += `The user prefers to be called "${currentUserSettings.chatbot_nickname}". Please address them by this name.\n`;
+                } else {
+                    customizationInstructions += "Address the user generally (e.g., 'User', or based on conversation context).\n";
+                }
+    
+                // Tone handling
+                switch (currentUserSettings.chatbot_tone) {
+                    case "professional_concise":
+                        customizationInstructions += "Adopt a professional and concise tone in your responses.\n";
+                        break;
+                    case "humorous_witty":
+                        customizationInstructions += "Adopt a humorous and witty tone. Be creative and engaging, but remain helpful.\n";
+                        break;
+                    case "custom":
+                        if (!currentUserSettings.chatbot_custom_instructions) {
+                            customizationInstructions += "Maintain a friendly and supportive tone (default for custom with no specific instructions).\n";
+                        }
+                        break;
+                    default: // friendly_supportive
+                        customizationInstructions += "Maintain a friendly and supportive tone.\n";
+                }
+    
+                // Custom instructions
+                if (currentUserSettings.chatbot_custom_instructions) {
+                    customizationInstructions += `Adhere to these user-provided guidelines: "${currentUserSettings.chatbot_custom_instructions}"\n`;
+                }
+    
+                // User context
+                if (currentUserSettings.chatbot_user_context) {
+                    customizationInstructions += `User context: "${currentUserSettings.chatbot_user_context}"\n`;
+                }
+    
+                customizationInstructions += "--- END USER CUSTOMIZATION ---\n";
+                basePrompt += customizationInstructions;
+            }
+            // --- END CUSTOMIZATION LOGIC ---
+    
+            const finalPrompt = basePrompt + "\n\nConversation History:\n" + conversationHistory;
+    
             // Get AI response
             const response = await fetch(`${API_URL}/api/chat`, {
                 method: 'POST',
@@ -2364,37 +2423,59 @@ document.querySelectorAll('.dialog-modal').forEach(dialog => {
                     'Authorization': `Bearer ${getAuthToken()}`
                 },
                 body: JSON.stringify({ 
-                    prompt: message,
+                    prompt: finalPrompt,
                     chatId: currentChatId
-                 })
+                })
             });
             
-            if (!response.ok) {
-                const errorData = await response.json().catch(() => ({}));
-                throw new Error(errorData.message || 'AI service error');
-            }
+            if (!response.ok) throw new Error('AI service error');
             
             const data = await response.json();
             const aiReply = data.reply;
-
-            // Add AI response to UI and backend
-            addMessageToUI("assistant", aiReply);
-            await addMessage(currentChatId, {
-                sender: "assistant",
-                content: aiReply
-            }, getAuthToken());
-
-            // Update chat history
-        } catch (error) {
-            console.error('Error sending message:', error);
-            addMessageToUI("assistant", "Sorry, I encountered an error. Please try again.");
-        } finally {
-            const chatIndex = chatHistory.findIndex(chat => chat.id === currentChatId);
-            if (chatIndex !== -1) {
-                chatHistory[chatIndex].updated_at = new Date();
-                chatHistory[chatIndex].preview = aiReply.slice(0, 50) + (aiReply.length > 50 ? "..." : "");
+    
+            // Special handling for to-do list mode
+            if (isToDoListModeActive && aiReply.includes("Goal:")) {
+                const todoContainer = document.createElement("div");
+                todoContainer.classList.add("todo-list-container");
+                const contentWrapper = document.createElement("div");
+                contentWrapper.classList.add("todo-list-content");
+                contentWrapper.innerHTML = marked.parse(aiReply);
+                todoContainer.appendChild(contentWrapper);
+                
+                addMessageToUI("bot", todoContainer.outerHTML);
+                await addMessage(currentChatId, {
+                    sender: "bot",
+                    content: todoContainer.outerHTML
+                }, getAuthToken());
+            } else {
+                addMessageToUI("bot", aiReply);
+                await addMessage(currentChatId, {
+                    sender: "bot",
+                    content: aiReply
+                }, getAuthToken());
+            }
+    
+            // Update chat title if new chat
+            if (chat.messages.length === 2 && chat.title === "New Chat") {
+                await updateChatTitle(currentChatId, messageText.substring(0, 30), getAuthToken());
                 renderChatHistory();
             }
+    
+        } catch (error) {
+            console.error('Error:', error);
+            const errorMsg = `Sorry, I encountered an error: ${error.message}`;
+            addMessageToUI("bot", errorMsg);
+            await addMessage(currentChatId, {
+                sender: "bot",
+                content: errorMsg
+            }, getAuthToken());
+        } finally {
+            messageBeingSent = false;
+            userInput.disabled = false;
+            userInput.placeholder = isToDoListModeActive ? "Enter goal for To-Do List..." : "Ask ClassMate";
+            sendButton.disabled = true;
+            userInput.focus();
+            loadingIndicator.style.display = "none";
         }
     }
 
