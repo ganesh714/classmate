@@ -1961,14 +1961,7 @@ function toggleSidebar() {
                 deleteItem.innerHTML = '<i class="fas fa-trash-alt"></i> Delete';
                 deleteItem.addEventListener("click", async (e) => {
                     e.stopPropagation();
-                    try {
-                        const token = getAuthToken();
-                        if (!token) throw new Error("Not authenticated");
-                        
-                        await deleteChat(chat.id, token);
-                    } catch (error) {
-                        console.error("Delete error:", error);
-                    }
+                    await deleteChat(chat.id);
                     dropdown.classList.remove("show");
                 });
                 dropdown.appendChild(deleteItem);
@@ -2052,23 +2045,24 @@ function formatDate(date) {
     }
 
     
-    async function switchChat(chatId, token) {
+    async function switchChat(chatId) {
         if (!chatId) {
             console.error("Switch chat called without ID");
             return;
         }
-    
         try {
+            const token = getAuthToken();
             const chat = await getChat(chatId, token);
-            if (!chat) throw new Error("Chat not found");
             
             currentChatId = chatId;
             localStorage.setItem("currentChatId_ClassMate", chatId);
             chatContainer.innerHTML = "";
             
-            chat.messages.forEach(msg => addMessageToUI(msg.sender, msg.content));
+            // Add messages to UI
+            chat.messages.forEach(msg => {
+                addMessageToUI(msg.sender, msg.content);
+            });
             
-            // Reset input state
             userInput.value = "";
             userInput.dispatchEvent(new Event("input"));
             sendButton.disabled = true;
@@ -2079,13 +2073,12 @@ function formatDate(date) {
                 userInput.placeholder = "Ask ClassMate";
             }
             
-            // Highlight active chat
+            // Highlight the active chat
             document.querySelectorAll('#chat-history-list li').forEach(li => {
                 li.classList.toggle('active', li.dataset.chatId === chatId);
             });
         } catch (error) {
             console.error("Failed to switch chat:", error);
-            showToast("Failed to load chat. Starting new chat...", "error");
             await startNewChat(true, token);
         }
     }
@@ -2105,32 +2098,27 @@ function formatDate(date) {
         }
     }
 
-    async function deleteChat(chatId, token) {
-        if (!chatId) {
-            console.error("Delete chat called without ID");
-            showToast("Error: No chat selected", "error");
-            return;
-        }
-    
-        try {
-            const response = await apiCall(`/api/chats/${chatId}`, 'DELETE', null, token);
-            
-            // Update UI after successful deletion
-            const chats = await apiCall('/api/chats', 'GET', null, token);
-            
-            if (chatId === currentChatId) {
-                if (chats.length > 0) {
-                    await switchChat(chats[0].id, token);
-                } else {
-                    await startNewChat(true, token);
+    async function deleteChat(chatId) {
+        if (confirm("Are you sure you want to delete this chat?")) {
+            try {
+                const token = getAuthToken();
+                await apiCall(`/api/chats/${chatId}`, 'DELETE', null, token);
+                
+                // If we deleted the current chat, switch to another
+                if (chatId === currentChatId) {
+                    const chats = await apiCall('/api/chats', 'GET', null, token);
+                    if (chats.length > 0) {
+                        await switchChat(chats[0].id);
+                    } else {
+                        await startNewChat();
+                    }
                 }
+                
+                await renderChatHistory(); // Refresh the list
+            } catch (error) {
+                console.error("Failed to delete chat:", error);
+                alert("Failed to delete chat. Please try again.");
             }
-            
-            await renderChatHistory();
-            showToast("Chat deleted successfully");
-        } catch (error) {
-            console.error("Failed to delete chat:", error);
-            showToast("Failed to delete chat. Please try again.", "error");
         }
     }
 
