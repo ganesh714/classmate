@@ -1,7 +1,7 @@
 # Classmate AI
 
 <div align="center">
-  <img src="frontend/logos/logoheaderAi.png" alt="Classmate AI Logo" width="400">
+  <img src="frontend/logos/logo-light-header.png" alt="Classmate AI Logo" width="400">
   <br>
   <h3>Your Personal AI Learning Assistant</h3>
   <p>
