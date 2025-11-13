@@ -89,7 +89,7 @@ Follow these steps to get a local copy up and running.
 
 ### 1. Clone the Repository
 ```bash
-git clone [https://github.com/ganesh714/classmate.git](https://github.com/ganesh714/classmate.git)
+git clone https://github.com/ganesh714/classmate.git
 cd classmate
 ````
 
@@ -191,4 +191,4 @@ Contributions are what make the open-source community such an amazing place to l
 
 **Project Link:** [https://github.com/ganesh714/classmate](https://www.google.com/search?q=https://github.com/ganesh714/classmate)
 
-```
+
