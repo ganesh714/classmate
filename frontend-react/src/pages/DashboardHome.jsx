@@ -23,7 +23,7 @@ ChartJS.register(
 );
 
 const DashboardHome = () => {
-    const { theme } = useTheme();
+    const { theme, toggleTheme } = useTheme();
     const [loading, setLoading] = useState(true);
     const [stats, setStats] = useState({
         totalGoals: 0,
@@ -197,8 +197,8 @@ const DashboardHome = () => {
     }
 
     return (
-        <div className="container">
-            <header style={{ position: 'static', background: 'transparent', boxShadow: 'none', padding: '0 0 20px 0', height: 'auto' }}>
+        <>
+            <header className="dashboard-header">
                 <div className="header-brand">
                     <i className="fas fa-chart-bar" style={{ fontSize: '2rem', color: 'var(--accent)' }}></i>
                     <div>
@@ -207,96 +207,103 @@ const DashboardHome = () => {
                     </div>
                 </div>
                 <div className="header-actions">
-                    <button className="btn btn-primary" onClick={handleRefresh}>
+                    <button className="btn btn-primary" onClick={handleRefresh} title="Refresh Data">
                         <i className="fas fa-sync-alt"></i> <span>Refresh</span>
                     </button>
-                    {/* Settings and Theme Toggle are in Sidebar for React version, handled globally */}
+                    <button className="theme-toggle" onClick={toggleTheme} title="Toggle Theme" style={{ display: 'flex', border: '1px solid var(--card-border)' }}>
+                        <i className={`fas ${theme === 'light' ? 'fa-moon' : 'fa-sun'}`}></i>
+                    </button>
+                    <a href="/settings" className="theme-toggle" title="Settings" style={{ display: 'flex', textDecoration: 'none', color: 'inherit', alignItems: 'center', justifyContent: 'center' }}>
+                        <i className="fas fa-cog"></i>
+                    </a>
                 </div>
             </header>
 
-            <div className="stats-overview">
-                <StatCard title="Total Goals" value={stats.totalGoals} desc="Goals you've set" />
-                <StatCard title="Completed Goals" value={stats.completedGoals} desc="Goals fully achieved" />
-                <StatCard title="Total Tasks" value={stats.totalTasks} desc="Tasks across all goals" />
-                <StatCard title="Completed Tasks" value={stats.completedTasks} desc="Tasks you've finished" />
-                <StatCard title="Total Notes" value={stats.totalNotes} desc="Notes created" />
-                <StatCard title="Pinned Notes" value={stats.pinnedNotes} desc="Important notes" />
-            </div>
+            <div className="container" style={{ padding: '0 20px 20px 20px' }}>
+                <div className="stats-overview">
+                    <StatCard title="Total Goals" value={stats.totalGoals} desc="Goals you've set" />
+                    <StatCard title="Completed Goals" value={stats.completedGoals} desc="Goals fully achieved" />
+                    <StatCard title="Total Tasks" value={stats.totalTasks} desc="Tasks across all goals" />
+                    <StatCard title="Completed Tasks" value={stats.completedTasks} desc="Tasks you've finished" />
+                    <StatCard title="Total Notes" value={stats.totalNotes} desc="Notes created" />
+                    <StatCard title="Pinned Notes" value={stats.pinnedNotes} desc="Important notes" />
+                </div>
 
-            <div className="chart-container">
-                <div className="chart-card">
-                    <h2><i className="fas fa-chart-pie"></i> Goal Completion</h2>
-                    <div className="chart-wrapper">
-                        <Doughnut data={chartData.goals} options={{ maintainAspectRatio: false }} />
+                <div className="chart-container">
+                    <div className="chart-card">
+                        <h2><i className="fas fa-chart-pie"></i> Goal Completion</h2>
+                        <div className="chart-wrapper">
+                            <Doughnut data={chartData.goals} options={{ maintainAspectRatio: false }} />
+                        </div>
+                    </div>
+                    <div className="chart-card">
+                        <h2><i className="fas fa-chart-pie"></i> Task Completion</h2>
+                        <div className="chart-wrapper">
+                            <Doughnut data={chartData.tasks} options={{ maintainAspectRatio: false }} />
+                        </div>
                     </div>
                 </div>
-                <div className="chart-card">
-                    <h2><i className="fas fa-chart-pie"></i> Task Completion</h2>
-                    <div className="chart-wrapper">
-                        <Doughnut data={chartData.tasks} options={{ maintainAspectRatio: false }} />
-                    </div>
-                </div>
-            </div>
 
-            <h2 className="section-title"><i className="fas fa-bullseye"></i> Your Goals</h2>
-            <div className="goals-container">
-                {goals.length === 0 ? (
-                    <div style={{ gridColumn: '1 / -1', textAlign: 'center', padding: '2rem', color: 'var(--text-secondary)' }}>
-                        <i className="fas fa-clipboard-list" style={{ fontSize: '3rem', marginBottom: '1rem', opacity: 0.5 }}></i>
-                        <p>No goals yet. Create some in your Task Manager!</p>
-                    </div>
-                ) : (
-                    goals.map(goal => {
-                        const completionPercentage = goal.totalItems > 0 ? Math.round((goal.completedItems / goal.totalItems) * 100) : 0;
-                        const isCompleted = completionPercentage === 100 && goal.totalItems > 0;
-                        return (
-                            <div key={goal.id} className={`goal-card ${isCompleted ? 'completed' : ''}`}>
-                                <h3>
-                                    <i className={`fas ${goal.pinned ? 'fa-thumbtack' : 'fa-bullseye'}`}></i>
-                                    {goal.title}
-                                </h3>
-                                <div className="goal-progress">
-                                    <div className="progress-bar">
-                                        <div className="progress-fill" style={{ width: `${completionPercentage}%` }}></div>
-                                    </div>
-                                    <div className="progress-text">
-                                        <span>Progress</span>
-                                        <span>{completionPercentage}%</span>
-                                    </div>
-                                </div>
-                                <div className="goal-stats">
-                                    <div className="stat">
-                                        <div className="number">{goal.completedItems}</div><div className="label">Completed</div>
-                                    </div>
-                                    <div className="stat">
-                                        <div className="number">{goal.totalItems - goal.completedItems}</div><div className="label">Remaining</div>
-                                    </div>
-                                    <div className="stat">
-                                        <div className="number">{goal.totalItems}</div><div className="label">Total</div>
-                                    </div>
-                                </div>
-                            </div>
-                        );
-                    })
-                )}
-            </div>
-
-            <h2 className="section-title"><i className="fas fa-history"></i> Recent Activity</h2>
-            <div className="recent-activity">
-                <ul className="activity-list" style={{ listStyle: 'none', padding: 0 }}>
-                    {activities.length === 0 ? (
-                        <li style={{ textAlign: 'center', padding: '2rem', color: 'var(--text-secondary)' }}>
-                            <i className="fas fa-clock" style={{ fontSize: '2rem', marginBottom: '1rem', opacity: 0.5 }}></i>
-                            <p>No recent activity</p>
-                        </li>
+                <h2 className="section-title"><i className="fas fa-bullseye"></i> Your Goals</h2>
+                <div className="goals-container">
+                    {goals.length === 0 ? (
+                        <div style={{ gridColumn: '1 / -1', textAlign: 'center', padding: '2rem', color: 'var(--text-secondary)' }}>
+                            <i className="fas fa-clipboard-list" style={{ fontSize: '3rem', marginBottom: '1rem', opacity: 0.5 }}></i>
+                            <p>No goals yet. Create some in your Task Manager!</p>
+                        </div>
                     ) : (
-                        activities.map(activity => (
-                            <ActivityItem key={activity.id} activity={activity} />
-                        ))
+                        goals.map(goal => {
+                            const completionPercentage = goal.totalItems > 0 ? Math.round((goal.completedItems / goal.totalItems) * 100) : 0;
+                            const isCompleted = completionPercentage === 100 && goal.totalItems > 0;
+                            return (
+                                <div key={goal.id} className={`goal-card ${isCompleted ? 'completed' : ''}`}>
+                                    <h3>
+                                        <i className={`fas ${goal.pinned ? 'fa-thumbtack' : 'fa-bullseye'}`}></i>
+                                        {goal.title}
+                                    </h3>
+                                    <div className="goal-progress">
+                                        <div className="progress-bar">
+                                            <div className="progress-fill" style={{ width: `${completionPercentage}%` }}></div>
+                                        </div>
+                                        <div className="progress-text">
+                                            <span>Progress</span>
+                                            <span>{completionPercentage}%</span>
+                                        </div>
+                                    </div>
+                                    <div className="goal-stats">
+                                        <div className="stat">
+                                            <div className="number">{goal.completedItems}</div><div className="label">Completed</div>
+                                        </div>
+                                        <div className="stat">
+                                            <div className="number">{goal.totalItems - goal.completedItems}</div><div className="label">Remaining</div>
+                                        </div>
+                                        <div className="stat">
+                                            <div className="number">{goal.totalItems}</div><div className="label">Total</div>
+                                        </div>
+                                    </div>
+                                </div>
+                            );
+                        })
                     )}
-                </ul>
+                </div>
+
+                <h2 className="section-title"><i className="fas fa-history"></i> Recent Activity</h2>
+                <div className="recent-activity">
+                    <ul className="activity-list" style={{ listStyle: 'none', padding: 0 }}>
+                        {activities.length === 0 ? (
+                            <li style={{ textAlign: 'center', padding: '2rem', color: 'var(--text-secondary)' }}>
+                                <i className="fas fa-clock" style={{ fontSize: '2rem', marginBottom: '1rem', opacity: 0.5 }}></i>
+                                <p>No recent activity</p>
+                            </li>
+                        ) : (
+                            activities.map(activity => (
+                                <ActivityItem key={activity.id} activity={activity} />
+                            ))
+                        )}
+                    </ul>
+                </div>
             </div>
-        </div>
+        </>
     );
 };
 
