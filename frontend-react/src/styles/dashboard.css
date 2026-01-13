@@ -1,0 +1,405 @@
+/* Dashboard Layout specific styles */
+
+.app-container {
+    display: flex;
+    min-height: 100vh;
+    width: 100%;
+}
+
+/* Vertical Panel - Narrow Version */
+.vertical-panel-narrow {
+    width: 80px;
+    background-color: var(--card-bg);
+    box-shadow: var(--shadow);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 16px 0;
+    height: 100vh;
+    position: fixed;
+    left: 0;
+    top: 0;
+    z-index: 10;
+    transition: width 0.35s cubic-bezier(0.4, 0.2, 0.2, 1), opacity 0.25s;
+    border-right: 1px solid var(--card-border);
+    opacity: 1;
+}
+
+.logo-container-sidebar {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+    margin-bottom: 16px;
+    width: 100%;
+}
+
+.expand-button {
+    position: absolute;
+    right: -15px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: var(--text-secondary);
+    cursor: pointer;
+    width: 16px;
+    height: 16px;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.2s;
+}
+
+.vertical-panel-narrow:hover .expand-button {
+    opacity: 1;
+    pointer-events: auto;
+}
+
+.expand-button i {
+    font-size: 20px;
+    background-color: var(--card-border);
+    padding: 20px 5px;
+    border-radius: 0px 10px 10px 0px;
+    color: var(--text);
+    transition: background-color 0.3s ease, color 0.3s ease;
+}
+
+.nav-item {
+    width: 40px;
+    height: 40px;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 16px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    color: var(--text-secondary);
+    text-decoration: none;
+}
+
+.nav-item i {
+    font-size: 16px;
+    color: inherit;
+}
+
+.nav-item.active {
+    background-color: rgba(138, 143, 255, 0.1);
+    color: var(--accent);
+}
+
+.nav-item:hover:not(.active) {
+    background-color: rgba(138, 143, 255, 0.1);
+    transform: translateY(-2px);
+}
+
+.spacer {
+    flex-grow: 1;
+}
+
+.user-profile {
+    margin-bottom: 16px;
+    cursor: pointer;
+}
+
+.user-avatar {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    object-fit: cover;
+    border: 2px solid var(--accent);
+}
+
+/* Vertical Panel - Expanded Version */
+.vertical-panel-expanded {
+    width: 240px;
+    background-color: var(--card-bg);
+    box-shadow: var(--shadow);
+    display: flex;
+    flex-direction: column;
+    padding: 16px 0;
+    height: 100vh;
+    position: fixed;
+    left: 0;
+    top: 0;
+    z-index: 10;
+    transition: width 0.35s cubic-bezier(0.4, 0.2, 0.2, 1), opacity 0.25s;
+    border-right: 1px solid var(--card-border);
+}
+
+.panel-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 16px;
+    margin-bottom: 24px;
+}
+
+.logo-text-sidebar {
+    font-weight: 600;
+    font-size: 18px;
+    margin-left: 8px;
+    background: linear-gradient(to right, var(--accent), var(--accent-secondary));
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+}
+
+.collapse-button {
+    background: none;
+    border: none;
+    color: var(--text-secondary);
+    cursor: pointer;
+    width: 20px;
+    height: 20px;
+    padding: 0;
+    transition: all 0.2s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.collapse-button:hover {
+    color: var(--accent);
+    transform: translateX(-2px);
+}
+
+.panel-section {
+    margin-bottom: 24px;
+}
+
+.section-header {
+    color: var(--text-secondary);
+    font-size: 12px;
+    font-weight: 500;
+    padding: 0 16px;
+    margin-bottom: 8px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.nav-item-expanded {
+    display: flex;
+    align-items: center;
+    padding: 8px 16px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    position: relative;
+    border-radius: 6px;
+    margin: 0 8px;
+    text-decoration: none;
+    color: var(--text);
+    width: auto;
+}
+
+.nav-item-expanded.active {
+    background-color: rgba(138, 143, 255, 0.1);
+}
+
+.nav-item-expanded.active::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    width: 3px;
+    background: var(--accent);
+    border-radius: 0 3px 3px 0;
+}
+
+.nav-icon {
+    width: 20px;
+    height: 20px;
+    margin-right: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.nav-icon i {
+    font-size: 16px;
+    color: var(--text-secondary);
+}
+
+.nav-item-expanded.active .nav-icon i {
+    color: var(--accent);
+}
+
+.nav-item-expanded.active .nav-text {
+    color: var(--accent);
+    font-weight: 500;
+}
+
+.nav-text {
+    font-size: 14px;
+    transition: color 0.2s ease;
+}
+
+.nav-item-expanded:hover:not(.active) {
+    background-color: rgba(138, 143, 255, 0.1);
+}
+
+.nav-item-expanded:hover:not(.active) .nav-icon i,
+.nav-item-expanded:hover:not(.active) .nav-text {
+    color: var(--accent);
+}
+
+.user-profile-expanded {
+    display: flex;
+    align-items: center;
+    padding: 8px 16px;
+    margin-bottom: 8px;
+    border-top: 1px solid var(--card-border);
+    padding-top: 16px;
+    min-width: 0;
+    cursor: pointer;
+}
+
+.user-info {
+    margin-left: 12px;
+    min-width: 0;
+    flex: 1 1 0%;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+.user-name {
+    color: var(--text);
+    font-size: 14px;
+    font-weight: 500;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 170px;
+}
+
+.user-role {
+    color: var(--text-secondary);
+    font-size: 12px;
+    word-break: break-all;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 170px;
+    white-space: nowrap;
+    display: block;
+}
+
+/* Toggle Switch in expanded menu */
+.toggle-switch {
+    width: 40px;
+    height: 20px;
+    background-color: var(--card-border);
+    border-radius: 10px;
+    margin-left: auto;
+    position: relative;
+    padding: 2px;
+    cursor: pointer;
+    transition: background-color 0.3s ease;
+}
+
+.toggle-knob {
+    width: 16px;
+    height: 16px;
+    background-color: var(--card-bg);
+    border-radius: 50%;
+    transition: transform 0.2s ease;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.dark-mode .toggle-knob {
+    background-color: var(--text);
+}
+
+.toggle-switch.active {
+    background-color: var(--accent);
+}
+
+.toggle-switch.active .toggle-knob {
+    transform: translateX(20px);
+}
+
+
+/* Main Content */
+.main-content {
+    flex-grow: 1;
+    background-color: var(--bg);
+    margin-left: 80px;
+    transition: margin-left 0.3s ease, background-color 0.3s ease;
+    min-height: 100vh;
+    position: relative;
+    width: 100%;
+    padding: 20px;
+}
+
+.main-content-expanded {
+    margin-left: 240px;
+}
+
+/* Responsive Styles */
+@media (max-width: 768px) {
+    .vertical-panel-narrow {
+        width: 60px;
+    }
+
+    .vertical-panel-expanded {
+        width: 200px;
+    }
+
+    .main-content {
+        margin-left: 60px;
+    }
+
+    .main-content-expanded {
+        margin-left: 200px;
+    }
+
+    .expand-button i {
+        padding: 15px 4px;
+    }
+}
+
+@media (max-width: 700px) {
+    .vertical-panel-narrow {
+        width: 100vw;
+        height: auto;
+        min-height: unset;
+        flex-direction: row;
+        align-items: center;
+        justify-content: center;
+        position: fixed;
+        left: 0;
+        bottom: 0;
+        top: unset;
+        border-right: none;
+        border-top: 1px solid var(--card-border);
+        box-shadow: 0 -2px 16px rgba(0, 0, 0, 0.08);
+        z-index: 100;
+        padding: 0;
+    }
+
+    .vertical-panel-narrow .logo-container-sidebar,
+    .vertical-panel-narrow .spacer,
+    .vertical-panel-narrow .user-profile,
+    .vertical-panel-narrow .expand-button {
+        display: none !important;
+    }
+
+    .main-content,
+    .main-content-expanded {
+        margin-left: 0 !important;
+        margin-bottom: 60px;
+        /* Space for bottom bar */
+    }
+
+    /* Flex container for bottom icons */
+    .vertical-panel-narrow .nav-icons-group {
+        display: flex;
+        flex-direction: row;
+        width: 100%;
+        justify-content: space-evenly;
+        padding: 0.5rem;
+    }
+
+    .vertical-panel-narrow .nav-item {
+        margin-bottom: 0;
+    }
+}
