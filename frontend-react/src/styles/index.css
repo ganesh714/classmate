@@ -297,6 +297,10 @@ nav a:hover::before {
     font-family: 'Plus Jakarta Sans', system-ui, sans-serif;
     text-decoration: none;
     /* Added to ensure Links look like buttons */
+    line-height: 1.5;
+    /* Normalize line height */
+    color: white;
+    /* Ensure default color is white for buttons */
 }
 
 .btn::before {
