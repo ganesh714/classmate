@@ -46,9 +46,9 @@ const Navbar = () => {
                         <button className="theme-toggle" id="themeToggleDesktop" onClick={toggleTheme}>
                             {theme === 'light' ? <i className="fas fa-moon"></i> : <i className="fas fa-sun"></i>}
                         </button>
-                        <Link to="/login" className="btn btn-primary">
+                        <button className="btn btn-primary" onClick={() => navigate('/login')}>
                             <i className="fas fa-sign-in-alt"></i> Login/Signup
-                        </Link>
+                        </button>
                     </div>
                     <button className={`mobile-menu-btn ${isMobileMenuOpen ? 'active' : ''}`} id="mobileMenuBtn" onClick={toggleMobileMenu}>
                         <span className="bar"></span>

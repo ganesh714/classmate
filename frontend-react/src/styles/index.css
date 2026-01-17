@@ -296,9 +296,6 @@ nav a:hover::before {
     border: none;
     font-family: 'Plus Jakarta Sans', system-ui, sans-serif;
     text-decoration: none;
-    width: max-content;
-    /* Ensure button doesn't stretch */
-    text-align: center;
 }
 
 .btn::before {

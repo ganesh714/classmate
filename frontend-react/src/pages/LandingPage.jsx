@@ -1,9 +1,10 @@
 import React from 'react';
 import Navbar from '../components/Navbar';
 import Footer from '../components/Footer';
-import { Link } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 
 const LandingPage = () => {
+    const navigate = useNavigate();
     return (
         <>
             <div className="grid-bg"></div>
@@ -17,9 +18,9 @@ const LandingPage = () => {
                     <h1>Your Personal AI Learning Assistant.</h1>
                     <p>Classmate AI helps you learn smarter, not harder. Get personalized study plans, instant answers to your questions, and intelligent insights to boost your academic performance.</p>
                     <div className="cta-buttons">
-                        <Link to="/login" className="btn btn-primary">
+                        <button className="btn btn-primary" onClick={() => navigate('/login')}>
                             <i className="fas fa-rocket"></i> Get Started
-                        </Link>
+                        </button>
                     </div>
                 </section>
             </div>
