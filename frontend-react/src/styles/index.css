@@ -281,9 +281,9 @@ nav a:hover::before {
 }
 
 .btn {
-    padding: 1rem 2rem;
+    padding: 0.8rem 1.6rem;
     border-radius: 50px;
-    font-size: 1rem;
+    font-size: 0.95rem;
     cursor: pointer;
     transition: all 0.3s ease;
     font-weight: 600;
@@ -297,10 +297,8 @@ nav a:hover::before {
     font-family: 'Plus Jakarta Sans', system-ui, sans-serif;
     text-decoration: none;
     /* Added to ensure Links look like buttons */
-    line-height: 1.5;
-    /* Normalize line height */
-    color: white;
-    /* Ensure default color is white for buttons */
+    /* line-height: 1.5; Removed to match index.html */
+    /* color: white; Removed from base class, handled by btn-primary/secondary */
 }
 
 .btn::before {
