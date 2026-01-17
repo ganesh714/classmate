@@ -281,19 +281,22 @@ nav a:hover::before {
 }
 
 .btn {
-    padding: 0.8rem 1.6rem;
+    padding: 1rem 2rem;
     border-radius: 50px;
-    font-size: 0.95rem;
+    font-size: 1rem;
     cursor: pointer;
     transition: all 0.3s ease;
     font-weight: 600;
     display: inline-flex;
     align-items: center;
+    justify-content: center;
     gap: 0.5rem;
     position: relative;
     overflow: hidden;
     border: none;
     font-family: 'Plus Jakarta Sans', system-ui, sans-serif;
+    text-decoration: none;
+    /* Added to ensure Links look like buttons */
 }
 
 .btn::before {
