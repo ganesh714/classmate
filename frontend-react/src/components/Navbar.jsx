@@ -34,7 +34,7 @@ const Navbar = () => {
             <header id="mainHeader" className={isScrolled ? 'scrolled' : ''}>
                 <div className="header-container">
                     <div className="logo-container">
-                        <img src={theme === 'light' ? logoLight : logoDark} alt="Classmate AI Logo" className="logo" />
+                        <img src={!isScrolled ? logoDark : (theme === 'light' ? logoLight : logoDark)} alt="Classmate AI Logo" className="logo" />
                         <span className="logo-text">ClassmateAI</span>
                     </div>
                     <nav>
