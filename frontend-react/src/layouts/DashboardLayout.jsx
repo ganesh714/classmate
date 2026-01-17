@@ -11,7 +11,7 @@ const DashboardLayout = () => {
     };
 
     return (
-        <div className="app-container">
+        <div className="dashboard-layout app-container">
             <Sidebar isExpanded={isExpanded} toggleExpanded={toggleExpanded} />
 
             {/* Main Content Area */}

@@ -403,6 +403,7 @@
         margin-bottom: 0;
     }
 }
+
 /* --- Dashboard Content Styles (Ported from dashboard.html) --- */
 
 .container {
@@ -411,7 +412,7 @@
     padding: 20px;
 }
 
-header {
+.dashboard-layout header {
     background: transparent;
     padding: 0 0 20px 0;
     margin-bottom: 20px;
@@ -451,7 +452,7 @@ header {
     gap: 1rem;
 }
 
-.btn {
+.dashboard-layout .btn {
     padding: 0.6rem 1.2rem;
     border: none;
     border-radius: 6px;
@@ -466,12 +467,12 @@ header {
     justify-content: center;
 }
 
-.btn-primary {
+.dashboard-layout .btn-primary {
     background: var(--btn-primary);
     color: white;
 }
 
-.btn-primary:hover {
+.dashboard-layout .btn-primary:hover {
     filter: brightness(1.1);
     transform: translateY(-1px);
     box-shadow: 0 0 15px rgba(138, 143, 255, 0.4);
@@ -488,7 +489,8 @@ header {
 .stat-card {
     background: var(--card-bg);
     border: 1px solid var(--card-border);
-    border-radius: 8px; /* var(--radius-lg) */
+    border-radius: 8px;
+    /* var(--radius-lg) */
     padding: 1.5rem;
     box-shadow: var(--shadow);
     display: flex;
@@ -725,15 +727,15 @@ header {
     .container {
         padding: 15px;
     }
-    
+
     .chart-container {
         grid-template-columns: 1fr;
     }
-    
+
     .stats-overview {
         grid-template-columns: 1fr 1fr;
     }
-    
+
     .goals-container {
         grid-template-columns: 1fr;
     }
@@ -765,4 +767,3 @@ header {
     margin-left: -20px;
     margin-top: -20px;
 }
-
