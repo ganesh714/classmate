@@ -749,7 +749,7 @@
 
 
 /* Added via script */
-.dashboard-header {
+.dashboard-layout .dashboard-header {
     padding: 0.75rem 1.5rem;
     height: 70px;
     display: flex;
