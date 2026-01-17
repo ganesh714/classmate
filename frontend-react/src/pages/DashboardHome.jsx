@@ -200,7 +200,7 @@ const DashboardHome = () => {
         <>
             <header className="dashboard-header">
                 <div className="header-brand">
-                    <i className="fas fa-chart-bar" style={{ fontSize: '2rem', color: 'var(--accent)' }}></i>
+                    <i className="fas fa-chart-bar" style={{ fontSize: '1.5rem', color: 'var(--accent)' }}></i>
                     <div>
                         <h1 className="page-title">Progress Dashboard</h1>
                         <p className="header-subtitle">Track your goals, tasks, and notes</p>
