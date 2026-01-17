@@ -1027,8 +1027,8 @@ footer::before {
     }
 
     .cta-buttons .btn {
-        width: 100%;
-        max-width: 300px;
+        /* width: 100%; */
+        /* max-width: 300px; */
         justify-content: center;
     }
 
