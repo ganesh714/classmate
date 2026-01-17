@@ -296,7 +296,7 @@ nav a:hover::before {
     border: none;
     font-family: 'Plus Jakarta Sans', system-ui, sans-serif;
     text-decoration: none;
-    width: max-content;
+    width: auto;
 }
 
 .btn::before {
