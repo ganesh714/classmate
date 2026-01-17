@@ -296,9 +296,9 @@ nav a:hover::before {
     border: none;
     font-family: 'Plus Jakarta Sans', system-ui, sans-serif;
     text-decoration: none;
-    /* Added to ensure Links look like buttons */
-    /* line-height: 1.5; Removed to match index.html */
-    /* color: white; Removed from base class, handled by btn-primary/secondary */
+    width: max-content;
+    /* Ensure button doesn't stretch */
+    text-align: center;
 }
 
 .btn::before {
