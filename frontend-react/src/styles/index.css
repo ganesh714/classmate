@@ -374,21 +374,7 @@ nav a:hover::before {
     transition: transform 0.3s ease;
 }
 
-.dark-mode .theme-toggle i.fa-sun {
-    display: none;
-}
-
-.dark-mode .theme-toggle i.fa-moon {
-    display: block;
-}
-
-.theme-toggle i.fa-sun {
-    display: block;
-}
-
-.theme-toggle i.fa-moon {
-    display: none;
-}
+/* Relied on React for icon toggling */
 
 .hero {
     text-align: center;
