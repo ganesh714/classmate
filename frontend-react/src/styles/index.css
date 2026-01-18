@@ -289,11 +289,14 @@ nav a:hover::before {
     font-weight: 600;
     display: inline-flex;
     align-items: center;
+    justify-content: center;
     gap: 0.5rem;
     position: relative;
     overflow: hidden;
     border: none;
     font-family: 'Plus Jakarta Sans', system-ui, sans-serif;
+    text-decoration: none;
+    width: auto;
 }
 
 .btn::before {
@@ -371,21 +374,7 @@ nav a:hover::before {
     transition: transform 0.3s ease;
 }
 
-.dark-mode .theme-toggle i.fa-sun {
-    display: none;
-}
-
-.dark-mode .theme-toggle i.fa-moon {
-    display: block;
-}
-
-.theme-toggle i.fa-sun {
-    display: block;
-}
-
-.theme-toggle i.fa-moon {
-    display: none;
-}
+/* Relied on React for icon toggling */
 
 .hero {
     text-align: center;
@@ -1024,8 +1013,8 @@ footer::before {
     }
 
     .cta-buttons .btn {
-        width: 100%;
-        max-width: 300px;
+        /* width: 100%; */
+        /* max-width: 300px; */
         justify-content: center;
     }
 

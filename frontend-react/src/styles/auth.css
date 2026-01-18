@@ -219,7 +219,7 @@
 }
 
 /* Button styles */
-.btn {
+.auth-card .btn {
     display: inline-flex;
     align-items: center;
     justify-content: center;
@@ -236,7 +236,7 @@
     width: 100%;
 }
 
-.btn::before {
+.auth-card .btn::before {
     content: '';
     position: absolute;
     top: 0;
@@ -247,17 +247,17 @@
     transition: left 0.7s ease;
 }
 
-.btn:hover::before {
+.auth-card .btn:hover::before {
     left: 100%;
 }
 
-.btn-primary {
+.auth-card .btn-primary {
     background: var(--btn-primary);
     color: white;
     box-shadow: var(--shadow);
 }
 
-.btn-primary:hover {
+.auth-card .btn-primary:hover {
     filter: var(--btn-hover);
     transform: translateY(-2px);
     box-shadow: var(--glow);
