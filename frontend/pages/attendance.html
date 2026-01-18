@@ -1,573 +1,448 @@
-
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Attendance Calculator - ClassmateAI</title>
-  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-  <style>
-    :root {
-      /* Light Theme Variables */
-      --bg: #f5f5f5;
-      --text: #333333;
-      --text-secondary: rgba(51, 51, 51, 0.7);
-      --accent: #2a8cf4;
-      --accent-secondary: #ff3a8c;
-      --accent-tertiary: #00c2ff;
-      --card-bg: rgba(255, 255, 255, 0.9);
-      --card-border: rgba(0, 0, 0, 0.1);
-      --btn-primary: linear-gradient(135deg, #a18dff, #7d5fff);
-      --btn-secondary: linear-gradient(135deg, #ff3a8c, #ff6b6b);
-      --btn-hover: brightness(1.05);
-      --shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
-      --grid-color: rgba(0, 0, 0, 0.05);
-      --glow: 0 0 20px rgba(138, 143, 255, 0.4);
-      --input-bg: #ffffff;
-      --input-border: #ddd;
-      --input-text: #333333;
-      --success: #28a745;
-      --warning: #ffc107;
-      --danger: #dc3545;
-      --transition-speed: 0.3s;
-    }
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Attendance Calculator - ClassmateAI</title>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap"
+        rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        :root {
+            /* Light Theme Variables */
+            --bg: #f5f5f5;
+            --text: #333333;
+            --text-secondary: rgba(51, 51, 51, 0.7);
+            --accent: #2a8cf4;
+            --accent-secondary: #ff3a8c;
+            --accent-tertiary: #00c2ff;
+            --card-bg: rgba(255, 255, 255, 0.9);
+            --card-border: rgba(0, 0, 0, 0.1);
+            --btn-primary: linear-gradient(135deg, #a18dff, #7d5fff);
+            --btn-secondary: linear-gradient(135deg, #ff3a8c, #ff6b6b);
+            --btn-hover: brightness(1.05);
+            --shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+            --grid-color: rgba(0, 0, 0, 0.05);
+            --glow: 0 0 20px rgba(138, 143, 255, 0.4);
+            --input-bg: #ffffff;
+            --input-border: #ddd;
+            --input-text: #333333;
+            --success: #28a745;
+            --warning: #ffc107;
+            --danger: #dc3545;
+            --transition-speed: 0.3s;
+        }
 
-    .dark-mode {
-      /* Dark Theme Variables */
-      --bg: #0a0a0a;
-      --text: #ffffff;
-      --text-secondary: rgba(255, 255, 255, 0.7);
-      --accent: #8a8fff;
-      --accent-secondary: #ff3a8c;
-      --accent-tertiary: #00c2ff;
-      --card-bg: rgba(0, 0, 0, 0.9);
-      --card-border: rgba(255, 255, 255, 0.1);
-      --btn-primary: linear-gradient(135deg, #a18dff, #7d5fff);
-      --btn-secondary: linear-gradient(135deg, #ff3a8c, #ff6b6b);
-      --btn-hover: brightness(1.1);
-      --shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
-      --grid-color: rgba(255, 255, 255, 0.05);
-      --glow: 0 0 20px rgba(138, 143, 255, 0.4);
-      --input-bg: #1a1a1a;
-      --input-border: #333;
-      --input-text: #ffffff;
-      --success: #2ecc71;
-      --warning: #f39c12;
-      --danger: #e74c3c;
-    }
+        .dark-mode {
+            /* Dark Theme Variables */
+            --bg: #0a0a0a;
+            --text: #ffffff;
+            --text-secondary: rgba(255, 255, 255, 0.7);
+            --accent: #8a8fff;
+            --accent-secondary: #ff3a8c;
+            --accent-tertiary: #00c2ff;
+            --card-bg: rgba(0, 0, 0, 0.9);
+            --card-border: rgba(255, 255, 255, 0.1);
+            --btn-primary: linear-gradient(135deg, #a18dff, #7d5fff);
+            --btn-secondary: linear-gradient(135deg, #ff3a8c, #ff6b6b);
+            --btn-hover: brightness(1.1);
+            --shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
+            --grid-color: rgba(255, 255, 255, 0.05);
+            --glow: 0 0 20px rgba(138, 143, 255, 0.4);
+            --input-bg: #1a1a1a;
+            --input-border: #333;
+            --input-text: #ffffff;
+            --success: #2ecc71;
+            --warning: #f39c12;
+            --danger: #e74c3c;
+        }
 
-    * {
-      box-sizing: border-box;
-      margin: 0;
-      padding: 0;
-    }
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
 
-    body {
-      font-family: 'Plus Jakarta Sans', system-ui, sans-serif;
-      background-color: var(--bg);
-      color: var(--text);
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      min-height: 100vh;
-      transition: background-color var(--transition-speed) ease, color var(--transition-speed) ease;
-      padding: 1rem;
-    }
+        body {
+            font-family: 'Plus Jakarta Sans', system-ui, sans-serif;
+            background-color: var(--bg);
+            color: var(--text);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            transition: background-color var(--transition-speed) ease, color var(--transition-speed) ease;
+            padding: 1rem;
+        }
 
-    /* Grid background */
-    .grid-bg {
-      position: fixed;
-      top: 0;
-      left: 0;
-      width: 100%;
-      height: 100%;
-      background-image: 
-        linear-gradient(var(--grid-color) 1px, transparent 1px),
-        linear-gradient(90deg, var(--grid-color) 1px, transparent 1px);
-      background-size: 40px 40px;
-      z-index: -2;
-      opacity: 0.4;
-    }
+        /* Grid background */
+        .grid-bg {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-image:
+                linear-gradient(var(--grid-color) 1px, transparent 1px),
+                linear-gradient(90deg, var(--grid-color) 1px, transparent 1px);
+            background-size: 40px 40px;
+            z-index: -2;
+            opacity: 0.4;
+        }
 
-    .container {
-      background: var(--card-bg);
-      padding: 2.5rem 2rem;
-      border-radius: 1rem;
-      max-width: 450px;
-      width: 100%;
-      box-shadow: var(--shadow);
-      transition: background-color var(--transition-speed) ease;
-      position: relative;
-      border: 1px solid var(--card-border);
-      z-index: 1;
-    }
+        .container {
+            background: var(--card-bg);
+            padding: 2.5rem 2rem;
+            border-radius: 1rem;
+            max-width: 450px;
+            width: 100%;
+            box-shadow: var(--shadow);
+            transition: background-color var(--transition-speed) ease;
+            position: relative;
+            border: 1px solid var(--card-border);
+            z-index: 1;
+        }
 
-    .container::before {
-      content: '';
-      position: absolute;
-      top: 0;
-      left: 0;
-      width: 100%;
-      height: 4px;
-      background: linear-gradient(to right, var(--accent), var(--accent-secondary));
-      border-top-left-radius: 1rem;
-      border-top-right-radius: 1rem;
-    }
+        .container::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 4px;
+            background: linear-gradient(to right, var(--accent), var(--accent-secondary));
+            border-top-left-radius: 1rem;
+            border-top-right-radius: 1rem;
+        }
 
-    .theme-toggle-container {
-      position: absolute;
-      top: 1rem;
-      right: 1rem;
-    }
+        .theme-toggle-container {
+            position: absolute;
+            top: 1rem;
+            right: 1rem;
+        }
 
-    .theme-toggle {
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      width: 40px;
-      height: 40px;
-      border-radius: 50%;
-      background: rgba(255, 255, 255, 0.1);
-      border: 1px solid var(--card-border);
-      cursor: pointer;
-      transition: all 0.3s ease;
-      color: var(--text);
-    }
+        .theme-toggle {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid var(--card-border);
+            cursor: pointer;
+            transition: all 0.3s ease;
+            color: var(--text);
+        }
 
-    .theme-toggle:hover {
-      background: var(--accent);
-      color: white;
-    }
+        .theme-toggle:hover {
+            background: var(--accent);
+            color: white;
+        }
 
-    .theme-toggle i {
-      font-size: 1.2rem;
-      transition: transform 0.3s ease;
-    }
+        .theme-toggle i {
+            font-size: 1.2rem;
+            transition: transform 0.3s ease;
+        }
 
-    .dark-mode .theme-toggle i.fa-sun {
-      display: none;
-    }
+        .dark-mode .theme-toggle i.fa-sun {
+            display: none;
+        }
 
-    .dark-mode .theme-toggle i.fa-moon {
-      display: block;
-    }
+        .dark-mode .theme-toggle i.fa-moon {
+            display: block;
+        }
 
-    .theme-toggle i.fa-sun {
-      display: block;
-    }
+        .theme-toggle i.fa-sun {
+            display: block;
+        }
 
-    .theme-toggle i.fa-moon {
-      display: none;
-    }
+        .theme-toggle i.fa-moon {
+            display: none;
+        }
 
-    h3 {
-      text-align: center;
-      font-weight: 700;
-      background: linear-gradient(to right, var(--accent), var(--accent-secondary));
-      -webkit-background-clip: text;
-      background-clip: text;
-      -webkit-text-fill-color: transparent;
-      font-size: 1.8rem;
-      margin-bottom: 2rem;
-    }
+        h3 {
+            text-align: center;
+            font-weight: 700;
+            background: linear-gradient(to right, var(--accent), var(--accent-secondary));
+            -webkit-background-clip: text;
+            background-clip: text;
+            -webkit-text-fill-color: transparent;
+            font-size: 1.8rem;
+            margin-bottom: 2rem;
+        }
 
-    .input-group {
-      margin-bottom: 1.5rem;
-      position: relative;
-    }
+        .input-group {
+            margin-bottom: 1.5rem;
+            position: relative;
+        }
 
-    label {
-      display: block;
-      margin-bottom: 0.5rem;
-      font-size: 0.9rem;
-      font-weight: 600;
-      color: var(--text);
-    }
+        label {
+            display: block;
+            margin-bottom: 0.5rem;
+            font-size: 0.9rem;
+            font-weight: 600;
+            color: var(--text);
+        }
 
-    input[type="number"] {
-      width: 100%;
-      padding: 0.8rem 1rem;
-      border: 1px solid var(--input-border);
-      border-radius: 8px;
-      background: var(--input-bg);
-      color: var(--input-text);
-      font-size: 1rem;
-      outline: none;
-      transition: border-color var(--transition-speed) ease, box-shadow var(--transition-speed) ease;
-      appearance: textfield;
-      -moz-appearance: textfield;
-    }
+        input[type="number"] {
+            width: 100%;
+            padding: 0.8rem 1rem;
+            border: 1px solid var(--input-border);
+            border-radius: 8px;
+            background: var(--input-bg);
+            color: var(--input-text);
+            font-size: 1rem;
+            outline: none;
+            transition: border-color var(--transition-speed) ease, box-shadow var(--transition-speed) ease;
+            appearance: textfield;
+            -moz-appearance: textfield;
+        }
 
-    input[type="number"]::-webkit-outer-spin-button,
-    input[type="number"]::-webkit-inner-spin-button {
-      -webkit-appearance: none;
-      margin: 0;
-    }
+        input[type="number"]::-webkit-outer-spin-button,
+        input[type="number"]::-webkit-inner-spin-button {
+            -webkit-appearance: none;
+            margin: 0;
+        }
 
-    input[type="number"]:focus {
-      border-color: var(--accent);
-      box-shadow: 0 0 0 0.2rem rgba(138, 143, 255, 0.25);
-    }
+        input[type="number"]:focus {
+            border-color: var(--accent);
+            box-shadow: 0 0 0 0.2rem rgba(138, 143, 255, 0.25);
+        }
 
-    input[type="number"].invalid {
-      border-color: var(--danger);
-      box-shadow: 0 0 0 0.2rem rgba(231, 76, 60, 0.25);
-    }
+        input[type="number"].invalid {
+            border-color: var(--danger);
+            box-shadow: 0 0 0 0.2rem rgba(231, 76, 60, 0.25);
+        }
 
-    .error-message {
-      color: var(--danger);
-      font-size: 0.8rem;
-      margin-top: 0.3rem;
-      display: none;
-      height: 1em;
-    }
+        .error-message {
+            color: var(--danger);
+            font-size: 0.8rem;
+            margin-top: 0.3rem;
+            display: none;
+            height: 1em;
+        }
 
-    button {
-      width: 100%;
-      padding: 1rem;
-      margin-top: 1.5rem;
-      background: var(--btn-primary);
-      color: white;
-      border: none;
-      border-radius: 50px;
-      font-weight: 600;
-      font-size: 1rem;
-      cursor: pointer;
-      transition: all var(--transition-speed) ease;
-      box-shadow: var(--shadow);
-      position: relative;
-      overflow: hidden;
-    }
+        button {
+            width: 100%;
+            padding: 1rem;
+            margin-top: 1.5rem;
+            background: var(--btn-primary);
+            color: white;
+            border: none;
+            border-radius: 50px;
+            font-weight: 600;
+            font-size: 1rem;
+            cursor: pointer;
+            transition: all var(--transition-speed) ease;
+            box-shadow: var(--shadow);
+            position: relative;
+            overflow: hidden;
+        }
 
-    button::before {
-      content: '';
-      position: absolute;
-      top: 0;
-      left: -100%;
-      width: 100%;
-      height: 100%;
-      background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
-      transition: left 0.7s ease;
-    }
+        button::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+            transition: left 0.7s ease;
+        }
 
-    button:hover::before {
-      left: 100%;
-    }
+        button:hover::before {
+            left: 100%;
+        }
 
-    button:hover {
-      filter: var(--btn-hover);
-      transform: translateY(-2px);
-      box-shadow: var(--glow);
-    }
+        button:hover {
+            filter: var(--btn-hover);
+            transform: translateY(-2px);
+            box-shadow: var(--glow);
+        }
 
-    button:active {
-      transform: translateY(0);
-    }
+        button:active {
+            transform: translateY(0);
+        }
 
-    .result {
-      margin-top: 2rem;
-      font-size: 0.95rem;
-      background: rgba(138, 143, 255, 0.1);
-      padding: 1.5rem;
-      border-radius: 12px;
-      text-align: center;
-      line-height: 1.6;
-      transition: background-color var(--transition-speed) ease;
-      min-height: 100px;
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      flex-direction: column;
-      border: 1px solid var(--card-border);
-    }
+        .result {
+            margin-top: 2rem;
+            font-size: 0.95rem;
+            background: rgba(138, 143, 255, 0.1);
+            padding: 1.5rem;
+            border-radius: 12px;
+            text-align: center;
+            line-height: 1.6;
+            transition: background-color var(--transition-speed) ease;
+            min-height: 100px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            flex-direction: column;
+            border: 1px solid var(--card-border);
+        }
 
-    .result-content {
-      opacity: 0;
-      transform: translateY(10px);
-      transition: opacity 0.5s ease, transform 0.5s ease;
-    }
+        .result-content {
+            opacity: 0;
+            transform: translateY(10px);
+            transition: opacity 0.5s ease, transform 0.5s ease;
+        }
 
-    .result-content.visible {
-      opacity: 1;
-      transform: translateY(0);
-    }
+        .result-content.visible {
+            opacity: 1;
+            transform: translateY(0);
+        }
 
-    .highlight {
-      font-weight: 700;
-    }
+        .highlight {
+            font-weight: 700;
+        }
 
-    .green {
-      color: var(--success);
-    }
+        .green {
+            color: var(--success);
+        }
 
-    .yellow {
-      color: var(--warning);
-    }
+        .yellow {
+            color: var(--warning);
+        }
 
-    .red {
-      color: var(--danger);
-    }
+        .red {
+            color: var(--danger);
+        }
 
-    .back-link {
-      display: block;
-      margin-top: 2rem;
-      text-align: center;
-      text-decoration: none;
-      color: var(--accent);
-      font-size: 0.9rem;
-      font-weight: 600;
-      transition: color var(--transition-speed) ease;
-    }
+        .back-link {
+            display: block;
+            margin-top: 2rem;
+            text-align: center;
+            text-decoration: none;
+            color: var(--accent);
+            font-size: 0.9rem;
+            font-weight: 600;
+            transition: color var(--transition-speed) ease;
+        }
 
-    .back-link:hover {
-      text-decoration: underline;
-      color: var(--accent-secondary);
-    }
+        .back-link:hover {
+            text-decoration: underline;
+            color: var(--accent-secondary);
+        }
 
-    /* Responsive adjustments */
-    @media (max-width: 500px) {
-      .container {
-        padding: 2rem 1.5rem;
-      }
-      h3 {
-        font-size: 1.6rem;
-      }
-      button {
-        padding: 0.8rem;
-        font-size: 0.95rem;
-      }
-      .result {
-        padding: 1rem;
-        font-size: 0.9rem;
-      }
-    }
+        /* Responsive adjustments */
+        @media (max-width: 500px) {
+            .container {
+                padding: 2rem 1.5rem;
+            }
 
-    .theme-toggle-btn { display: none; }
-    @media (max-width: 700px) {
-      .theme-toggle-btn { display: inline-flex; }
-    }
+            h3 {
+                font-size: 1.6rem;
+            }
 
-/* Add to :root and .dark-mode */
-:root {
-  /* Existing variables... */
-  --scrollbar-thumb: rgba(0, 0, 0, 0.3);
-  --scrollbar-thumb-hover: rgba(0, 0, 0, 0.3);
-}
+            button {
+                padding: 0.8rem;
+                font-size: 0.95rem;
+            }
 
-.dark-mode {
-  /* Existing variables... */
-  --scrollbar-thumb: rgba(255, 255, 255, 0.2);
-  --scrollbar-thumb-hover: rgba(255, 255, 255, 0.3);
-}
+            .result {
+                padding: 1rem;
+                font-size: 0.9rem;
+            }
+        }
 
-/* Scrollbar styles (add anywhere in your CSS) */
-::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
-}
+        .theme-toggle-btn {
+            display: none;
+        }
 
-::-webkit-scrollbar-track {
-  background: transparent;
-}
+        @media (max-width: 700px) {
+            .theme-toggle-btn {
+                display: inline-flex;
+            }
+        }
 
-::-webkit-scrollbar-thumb {
-  background: var(--scrollbar-thumb);
-  border-radius: 3px;
-}
+        /* Add to :root and .dark-mode */
+        :root {
+            /* Existing variables... */
+            --scrollbar-thumb: rgba(0, 0, 0, 0.3);
+            --scrollbar-thumb-hover: rgba(0, 0, 0, 0.3);
+        }
 
-::-webkit-scrollbar-thumb:hover {
-  background: var(--scrollbar-thumb-hover);
-}
+        .dark-mode {
+            /* Existing variables... */
+            --scrollbar-thumb: rgba(255, 255, 255, 0.2);
+            --scrollbar-thumb-hover: rgba(255, 255, 255, 0.3);
+        }
 
-/* Firefox support */
-html {
-  scrollbar-width: thin;
-  scrollbar-color: var(--scrollbar-thumb) transparent;
-}
-  </style>
+        /* Scrollbar styles (add anywhere in your CSS) */
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: transparent;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: var(--scrollbar-thumb);
+            border-radius: 3px;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: var(--scrollbar-thumb-hover);
+        }
+
+        /* Firefox support */
+        html {
+            scrollbar-width: thin;
+            scrollbar-color: var(--scrollbar-thumb) transparent;
+        }
+    </style>
 </head>
+
 <body class="dark-mode">
-  <div class="grid-bg"></div>
-  
-  <div class="container">
-    
+    <div class="grid-bg"></div>
 
-    <h3>Attendance Calculator</h3>
+    <div class="container">
 
-    <div class="input-group">
-      <label for="total">Total Classes:</label>
-      <input type="number" id="total" placeholder="Enter total classes conducted" />
-      <div class="error-message" id="total-error"></div>
-    </div>
 
-    <div class="input-group">
-      <label for="attended">Attended Classes:</label>
-      <input type="number" id="attended" placeholder="Enter classes you attended" />
-      <div class="error-message" id="attended-error"></div>
-    </div>
+        <h3>Attendance Calculator</h3>
 
-    <div class="input-group">
-      <label for="mandatory">Mandatory Attendance (%):</label>
-      <input type="number" id="mandatory" placeholder="e.g., 75" />
-      <div class="error-message" id="mandatory-error"></div>
-    </div>
+        <div class="input-group">
+            <label for="total">Total Classes:</label>
+            <input type="number" id="total" placeholder="Enter total classes conducted" />
+            <div class="error-message" id="total-error"></div>
+        </div>
 
-    <div class="input-group">
-      <label for="perDay">Classes Per Day:</label>
-      <input type="number" id="perDay" placeholder="Average classes held per day" />
-      <div class="error-message" id="perDay-error"></div>
-    </div>
+        <div class="input-group">
+            <label for="attended">Attended Classes:</label>
+            <input type="number" id="attended" placeholder="Enter classes you attended" />
+            <div class="error-message" id="attended-error"></div>
+        </div>
 
-    <button onclick="calculateAttendance()">
-      <i class="fas fa-calculator"></i> Calculate Attendance
-    </button>
+        <div class="input-group">
+            <label for="mandatory">Mandatory Attendance (%):</label>
+            <input type="number" id="mandatory" placeholder="e.g., 75" />
+            <div class="error-message" id="mandatory-error"></div>
+        </div>
 
-    <div class="result" id="resultText">
-      <!-- Result will be injected here by JavaScript -->
-    </div>
+        <div class="input-group">
+            <label for="perDay">Classes Per Day:</label>
+            <input type="number" id="perDay" placeholder="Average classes held per day" />
+            <div class="error-message" id="perDay-error"></div>
+        </div>
 
-  <script>
-    // Theme toggle functionality (Standardized Logic)
-    const themeToggle = document.getElementById('themeToggle');
-    const body = document.body;
+        <button onclick="calculateAttendance()">
+            <i class="fas fa-calculator"></i> Calculate Attendance
+        </button>
 
-    // --- START OF THEME SYNCHRONIZATION LOGIC ---
-    function applyThemeSynchronized() {
-        const parentDarkModeSetting = localStorage.getItem("darkMode"); // Use the SHARED key
-        const isNowDark = parentDarkModeSetting === "enabled";
-        body.classList.toggle("dark-mode", isNowDark);
-        // CSS handles the display of sun/moon icons based on body.dark-mode class
-        // and the .theme-toggle button structure you have.
-    }
+        <div class="result" id="resultText">
+            <!-- Result will be injected here by JavaScript -->
+        </div>
 
-    // 1. Initial theme application on load
-    applyThemeSynchronized();
-
-    // 2. Listen for 'storage' events (when localStorage.darkMode changes elsewhere)
-    window.addEventListener('storage', (e) => {
-        if (e.key === 'darkMode') {
-            applyThemeSynchronized();
-        }
-    });
-
-    // 3. Listen for 'themeChange' custom event dispatched by the parent to this iframe
-    window.addEventListener('themeChange', (e) => {
-        if (e.detail && typeof e.detail.darkMode === 'boolean') {
-            body.classList.toggle("dark-mode", e.detail.darkMode);
-            // CSS handles icon changes
-        }
-    });
-
-    // 4. Handle the attendance calculator page's own theme toggle button
-    if (themeToggle) {
-        themeToggle.addEventListener('click', () => {
-            const bodyIsDarkNow = body.classList.toggle('dark-mode');
-            // Update the shared 'darkMode' localStorage item
-            localStorage.setItem('darkMode', bodyIsDarkNow ? 'enabled' : 'disabled');
-            // The parent's 'storage' event listener will pick this up.
-            // CSS handles local icon changes.
-
-            // Dispatch event for other pages (if this page directly changes theme)
-            // This is usually handled by the parent, but can be kept for robustness
-            // if an iframe is intended to be a source of truth too.
-            // For consistency, let parent dashboard handle dispatching primarily.
-            // window.dispatchEvent(new CustomEvent('themeChange', {
-            //   detail: { darkMode: bodyIsDarkNow }
-            // }));
-        });
-    }
-    // --- END OF THEME SYNCHRONIZATION LOGIC ---
-
-    function clearErrors() {
-      const errorMessages = document.querySelectorAll('.error-message');
-      errorMessages.forEach(el => el.style.display = 'none');
-      const inputs = document.querySelectorAll('input[type="number"]');
-      inputs.forEach(el => el.classList.remove('invalid'));
-    }
-
-    function showError(inputId, message) {
-      const inputElement = document.getElementById(inputId);
-      const errorElement = document.getElementById(`${inputId}-error`);
-      if (inputElement) inputElement.classList.add('invalid');
-      if (errorElement) {
-        errorElement.textContent = message;
-        errorElement.style.display = 'block';
-      }
-    }
-
-    function calculateAttendance() {
-      clearErrors();
-      const totalInput = document.getElementById("total");
-      const attendedInput = document.getElementById("attended");
-      const mandatoryInput = document.getElementById("mandatory");
-      const perDayInput = document.getElementById("perDay");
-      const resultDiv = document.getElementById("resultText");
-
-      const total = parseInt(totalInput.value);
-      const attended = parseInt(attendedInput.value);
-      const mandatory = parseInt(mandatoryInput.value);
-      const perDay = parseInt(perDayInput.value);
-
-      let isValid = true;
-
-      if (isNaN(total) || total <= 0) {
-        showError('total', 'Please enter a valid positive number for total classes.');
-        isValid = false;
-      }
-      if (isNaN(attended) || attended < 0) {
-        showError('attended', 'Please enter a valid non-negative number for attended classes.');
-        isValid = false;
-      }
-      if (isNaN(mandatory) || mandatory <= 0 || mandatory > 100) {
-        showError('mandatory', 'Please enter a valid percentage (1-100).');
-        isValid = false;
-      }
-      if (isNaN(perDay) || perDay <= 0) {
-        showError('perDay', 'Please enter a valid positive number for classes per day.');
-        isValid = false;
-      }
-
-      if (isValid && attended > total) {
-        showError('attended', 'Attended classes cannot be more than total classes.');
-        isValid = false;
-      }
-
-      resultDiv.innerHTML = '<div class="result-content"></div>';
-      const resultContent = resultDiv.querySelector('.result-content');
-      resultContent.classList.remove('visible');
-
-      if (!isValid) {
-        resultContent.innerHTML = "<span class='highlight red'><i class='fas fa-exclamation-triangle'></i> Please fix the errors above.</span>";
-        setTimeout(() => resultContent.classList.add('visible'), 50);
-        return;
-      }
-
-      const percentage = total === 0 ? 0 : (attended / total) * 100;
-      let message = '';
-      let colorClass = '';
-
-      if (percentage >= mandatory) {
-        colorClass = 'green';
-        const canBunk = Math.floor((attended * 100 / mandatory) - total);
-        const daysCanBunk = perDay > 0 ? Math.floor(canBunk / perDay) : 0;
-        message = `<i class="fas fa-check-circle"></i> You are safe with <span class="highlight ${colorClass}">${percentage.toFixed(2)}%</span> attendance.<br>
+        <script>
+      // Theme toggle functionality (Standardized Log                const themeToggle = document.getElementById('themeToggle                const body = document.bod                // --- START OF THEME SYNCHRONIZATION LOGIC                 function applyThemeSynchronized(                    const parentDarkModeSetting = localStorage.getItem("darkMode"); // Use the SHARED                     const isNowDark = parentDarkModeSetting === "enable                    body.classList.toggle("dark-mode", isNowDar                    // CSS handles the display of sun/moon icons based on body.dark-mode cl                    // and the .theme-toggle button structure you ha                               // 1. Initial theme application on l                applyThemeSynchronized(                // 2. Listen for 'storage' events (when localStorage.darkMode changes elsewhe                window.addEventListener('storage', (e) =                    if (e.key === 'darkMode'                        applyThemeSynchronized                                  }                // 3. Listen for 'themeChange' custom event dispatched by the parent to this ifr                window.addEventListener('themeChange', (e) =                    if (e.detail && typeof e.detail.darkMode === 'boolean'                        body.classList.toggle("dark-mode", e.detail.darkMod                        // CSS handles icon chan                                  }                // 4. Handle the attendance calculator page's own theme toggle but                if (themeToggle                    themeToggle.addEventListener('click', () =                        const bodyIsDarkNow = body.classList.toggle('dark-mode                        // Update the shared 'darkMode' localStorage i                        localStorage.setItem('darkMode', bodyIsDarkNow ? 'enabled' : 'disabled                        // The parent's 'storage' event listener will pick this                         // CSS handles local icon change                        // Dispatch event for other pages (if this page directly changes the                        // This is usually handled by the parent, but can be kept for robustn                        // if an iframe is intended to be a source of truth t                        // For consistency, let parent dashboard handle dispatching primari                        // window.dispatchEvent(new CustomEvent('themeChange'                        //   detail: { darkMode: bodyIsDarkNo                        // }                                                  // --- END OF THEME SYNCHRONIZATION LOGIC -                function clearErrors(                    const errorMessages = document.querySelectorAll('.error-message                    errorMessages.forEach(el => el.style.display = 'none                    const inputs = document.querySelectorAll('input[type="number"]                    inputs.forEach(el => el.classList.remove('invalid'                               function showError(inputId, message                    const inputElement = document.getElementById(inputI                    const errorElement = document.getElementById(`${inputId}-error                    if (inputElement) inputElement.classList.add('invalid                    if (errorElement                        errorElement.textContent = messa                        errorElement.style.display = 'bloc                                                 function calculateAttendance(                    clearErrors                    const totalInput = document.getElementById("total                    const attendedInput = document.getElementById("attended                    const mandatoryInput = document.getElementById("mandatory                    const perDayInput = document.getElementById("perDay                    const resultDiv = document.getElementById("resultText"                    const total = parseInt(totalInput.valu                    const attended = parseInt(attendedInput.valu                    const mandatory = parseInt(mandatoryInput.valu                    const perDay = parseInt(perDayInput.value                    let isValid = tru                    if (isNaN(total) || total <= 0                        showError('total', 'Please enter a valid positive number for total classes.                        isValid = fal                                      if (isNaN(attended) || attended < 0                        showError('attended', 'Please enter a valid non-negative number for attended classes.                        isValid = fal                                      if (isNaN(mandatory) || mandatory <= 0 || mandatory > 100                        showError('mandatory', 'Please enter a valid percentage (1-100).                        isValid = fal                                      if (isNaN(perDay) || perDay <= 0                        showError('perDay', 'Please enter a valid positive number for classes per day.                        isValid = fal                                       if (isValid && attended > total                        showError('attended', 'Attended classes cannot be more than total classes.                        isValid = fal                                       resultDiv.innerHTML = '<div class="result-content"></div                    const resultContent = resultDiv.querySelector('.result-content                    resultContent.classList.remove('visible'                    if (!isValid                        resultContent.innerHTML = "<span class='highlight red'><i class='fas fa-exclamation-triangle'></i> Please fix the errors above.</span                        setTimeout(() => resultContent.classList.add('visible'), 5                        retu                                       const percentage = total === 0 ? 0 : (attended / total) * 1                    let message =                     let colorClass = '                    if (percentage >= mandatory                        colorClass = 'gree                        const canBunk = Math.floor((attended * 100 / mandatory) - tota                        const daysCanBunk = perDay > 0 ? Math.floor(canBunk / perDay) :                        message = `<i class="fas fa-check-circle"></i> You are safe with <span class="highlight ${colorClass}">${percentage.toFixed(2)}%</span> attendance.<br>
                   You can afford to miss <span class="highlight">${canBunk}</span> more class(es).<br>
-                  That's approximately <span class="highlight">${daysCanBunk}</span> day(s).`;
-      } else {
-        colorClass = percentage >= (mandatory * 0.8) ? 'yellow' : 'red';
-        const needToAttend = Math.ceil((mandatory * total - attended * 100) / (100 - mandatory));
-        const daysToAttend = perDay > 0 ? Math.ceil(needToAttend / perDay) : Infinity;
-        const daysString = daysToAttend === Infinity ? "an infinite number of" : `<span class="highlight">${daysToAttend}</span>`;
-
-        message = `<i class="fas fa-exclamation-triangle"></i> Current Attendance: <span class="highlight ${colorClass}">${percentage.toFixed(2)}%</span>.<br>
+                  That's approximately <span class="highlight">${daysCanBunk}</span> day(s)                    } els                        colorClass = percentage >= (mandatory * 0.8) ? 'yellow' : 're                        const needToAttend = Math.ceil((mandatory * total - attended * 100) / (100 - mandatory                        const daysToAttend = perDay > 0 ? Math.ceil(needToAttend / perDay) : Infini                        const daysString = daysToAttend === Infinity ? "an infinite number of" : `<span class="highlight">${daysToAttend}</span>                        message = `<i class="fas fa-exclamation-triangle"></i> Current Attendance: <span class="highlight ${colorClass}">${percentage.toFixed(2)}%</span>.<br>
                   You need to attend <span class="highlight">${needToAttend}</span> more class(es) consecutively.<br>
-                  That's approximately ${daysString} day(s) to reach <span class="highlight">${mandatory}%</span>.`;
-      }
-
-      resultContent.innerHTML = message;
-      setTimeout(() => resultContent.classList.add('visible'), 50);
-    }
-  </script>
+                  That's approximately ${daysString} day(s) to reach <span class="highlight">${mandatory}%</span>                                       resultContent.innerHTML = messa                    setTimeout(() => resultContent.classList.add('visible'), 5                      </script>
 </body>
+
 </html>
