@@ -35,7 +35,7 @@ async def generate_reply(prompt: str, client):
     if not client:
         raise Exception("Gemini client not initialized.")
     response = client.models.generate_content(
-        model="gemini-2.0-flash", # Assuming this is the correct model name
+        model="gemini-2.5-flash", # Assuming this is the correct model name
         contents=prompt
     )
     return response.text
