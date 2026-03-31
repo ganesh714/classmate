@@ -938,8 +938,9 @@
                         totalTasksInGoal += phaseTasks.length;
 
                         phaseTasks.forEach((_, taskItemIndex) => {
-                            const checkboxId = `task_${taskArrayIndex}_phase_${phaseIndex}_item_${taskItemIndex}`;
-                            if (checkboxStates[checkboxId]) {
+                            const suffix = `_phase_${phaseIndex}_item_${taskItemIndex}`;
+                            const isCompleted = Object.entries(checkboxStates).some(([key, val]) => key.endsWith(suffix) && val === true);
+                            if (isCompleted) {
                                 completedTasksInGoal++;
                             }
                         });

@@ -397,7 +397,7 @@
     </style>
 </head>
 
-<body class="dark-mode">
+<body>
     <div class="grid-bg"></div>
 
     <div class="container">
@@ -438,11 +438,121 @@
         </div>
 
         <script>
-      // Theme toggle functionality (Standardized Log                const themeToggle = document.getElementById('themeToggle                const body = document.bod                // --- START OF THEME SYNCHRONIZATION LOGIC                 function applyThemeSynchronized(                    const parentDarkModeSetting = localStorage.getItem("darkMode"); // Use the SHARED                     const isNowDark = parentDarkModeSetting === "enable                    body.classList.toggle("dark-mode", isNowDar                    // CSS handles the display of sun/moon icons based on body.dark-mode cl                    // and the .theme-toggle button structure you ha                               // 1. Initial theme application on l                applyThemeSynchronized(                // 2. Listen for 'storage' events (when localStorage.darkMode changes elsewhe                window.addEventListener('storage', (e) =                    if (e.key === 'darkMode'                        applyThemeSynchronized                                  }                // 3. Listen for 'themeChange' custom event dispatched by the parent to this ifr                window.addEventListener('themeChange', (e) =                    if (e.detail && typeof e.detail.darkMode === 'boolean'                        body.classList.toggle("dark-mode", e.detail.darkMod                        // CSS handles icon chan                                  }                // 4. Handle the attendance calculator page's own theme toggle but                if (themeToggle                    themeToggle.addEventListener('click', () =                        const bodyIsDarkNow = body.classList.toggle('dark-mode                        // Update the shared 'darkMode' localStorage i                        localStorage.setItem('darkMode', bodyIsDarkNow ? 'enabled' : 'disabled                        // The parent's 'storage' event listener will pick this                         // CSS handles local icon change                        // Dispatch event for other pages (if this page directly changes the                        // This is usually handled by the parent, but can be kept for robustn                        // if an iframe is intended to be a source of truth t                        // For consistency, let parent dashboard handle dispatching primari                        // window.dispatchEvent(new CustomEvent('themeChange'                        //   detail: { darkMode: bodyIsDarkNo                        // }                                                  // --- END OF THEME SYNCHRONIZATION LOGIC -                function clearErrors(                    const errorMessages = document.querySelectorAll('.error-message                    errorMessages.forEach(el => el.style.display = 'none                    const inputs = document.querySelectorAll('input[type="number"]                    inputs.forEach(el => el.classList.remove('invalid'                               function showError(inputId, message                    const inputElement = document.getElementById(inputI                    const errorElement = document.getElementById(`${inputId}-error                    if (inputElement) inputElement.classList.add('invalid                    if (errorElement                        errorElement.textContent = messa                        errorElement.style.display = 'bloc                                                 function calculateAttendance(                    clearErrors                    const totalInput = document.getElementById("total                    const attendedInput = document.getElementById("attended                    const mandatoryInput = document.getElementById("mandatory                    const perDayInput = document.getElementById("perDay                    const resultDiv = document.getElementById("resultText"                    const total = parseInt(totalInput.valu                    const attended = parseInt(attendedInput.valu                    const mandatory = parseInt(mandatoryInput.valu                    const perDay = parseInt(perDayInput.value                    let isValid = tru                    if (isNaN(total) || total <= 0                        showError('total', 'Please enter a valid positive number for total classes.                        isValid = fal                                      if (isNaN(attended) || attended < 0                        showError('attended', 'Please enter a valid non-negative number for attended classes.                        isValid = fal                                      if (isNaN(mandatory) || mandatory <= 0 || mandatory > 100                        showError('mandatory', 'Please enter a valid percentage (1-100).                        isValid = fal                                      if (isNaN(perDay) || perDay <= 0                        showError('perDay', 'Please enter a valid positive number for classes per day.                        isValid = fal                                       if (isValid && attended > total                        showError('attended', 'Attended classes cannot be more than total classes.                        isValid = fal                                       resultDiv.innerHTML = '<div class="result-content"></div                    const resultContent = resultDiv.querySelector('.result-content                    resultContent.classList.remove('visible'                    if (!isValid                        resultContent.innerHTML = "<span class='highlight red'><i class='fas fa-exclamation-triangle'></i> Please fix the errors above.</span                        setTimeout(() => resultContent.classList.add('visible'), 5                        retu                                       const percentage = total === 0 ? 0 : (attended / total) * 1                    let message =                     let colorClass = '                    if (percentage >= mandatory                        colorClass = 'gree                        const canBunk = Math.floor((attended * 100 / mandatory) - tota                        const daysCanBunk = perDay > 0 ? Math.floor(canBunk / perDay) :                        message = `<i class="fas fa-check-circle"></i> You are safe with <span class="highlight ${colorClass}">${percentage.toFixed(2)}%</span> attendance.<br>
+        const themeToggle = document.getElementById('themeToggle');
+        const body = document.body;
+
+        function applyThemeSynchronized() {
+            const parentDarkModeSetting = localStorage.getItem('darkMode');
+            const isNowDark = parentDarkModeSetting === 'enabled';
+            body.classList.toggle('dark-mode', isNowDark);
+        }
+
+        applyThemeSynchronized();
+
+        window.addEventListener('storage', (e) => {
+            if (e.key === 'darkMode') applyThemeSynchronized();
+        });
+
+        window.addEventListener('themeChange', (e) => {
+            if (e.detail && typeof e.detail.darkMode === 'boolean') {
+                body.classList.toggle('dark-mode', e.detail.darkMode);
+            }
+        });
+
+        if (themeToggle) {
+            themeToggle.addEventListener('click', () => {
+                const bodyIsDarkNow = body.classList.toggle('dark-mode');
+                localStorage.setItem('darkMode', bodyIsDarkNow ? 'enabled' : 'disabled');
+            });
+        }
+
+        function clearErrors() {
+            const errorMessages = document.querySelectorAll('.error-message');
+            errorMessages.forEach(el => el.style.display = 'none');
+            const inputs = document.querySelectorAll('input[type="number"]');
+            inputs.forEach(el => el.classList.remove('invalid'));
+        }
+
+        function showError(inputId, message) {
+            const inputElement = document.getElementById(inputId);
+            const errorElement = document.getElementById(inputId + '-error');
+            if (inputElement) inputElement.classList.add('invalid');
+            if (errorElement) {
+                errorElement.textContent = message;
+                errorElement.style.display = 'block';
+            }
+        }
+
+        function calculateAttendance() {
+            clearErrors();
+            const totalInput = document.getElementById('total');
+            const attendedInput = document.getElementById('attended');
+            const mandatoryInput = document.getElementById('mandatory');
+            const perDayInput = document.getElementById('perDay');
+            const resultDiv = document.getElementById('resultText');
+            
+            const total = parseInt(totalInput.value);
+            const attended = parseInt(attendedInput.value);
+            const mandatory = parseInt(mandatoryInput.value);
+            const perDay = parseInt(perDayInput.value);
+            
+            let isValid = true;
+            if (isNaN(total) || total <= 0) {
+                showError('total', 'Please enter a valid positive number for total classes.');
+                isValid = false;
+            }
+            if (isNaN(attended) || attended < 0) {
+                showError('attended', 'Please enter a valid non-negative number for attended classes.');
+                isValid = false;
+            }
+            if (isNaN(mandatory) || mandatory <= 0 || mandatory > 100) {
+                showError('mandatory', 'Please enter a valid percentage (1-100).');
+                isValid = false;
+            }
+            if (isNaN(perDay) || perDay <= 0) {
+                showError('perDay', 'Please enter a valid positive number for classes per day.');
+                isValid = false;
+            }
+            if (isValid && attended > total) {
+                showError('attended', 'Attended classes cannot be more than total classes.');
+                isValid = false;
+            }
+            
+            resultDiv.innerHTML = '<div class="result-content"></div>';
+            const resultContent = resultDiv.querySelector('.result-content');
+            resultContent.classList.remove('visible');
+            
+            if (!isValid) {
+                resultContent.innerHTML = '<span class="highlight red"><i class="fas fa-exclamation-triangle"></i> Please fix the errors above.</span>';
+                setTimeout(() => resultContent.classList.add('visible'), 50);
+                return;
+            }
+            
+            const percentage = total === 0 ? 0 : (attended / total) * 100;
+            let message = '';
+            let colorClass = '';
+            
+            if (percentage >= mandatory) {
+                colorClass = 'green';
+                const canBunk = Math.floor((attended * 100 / mandatory) - total);
+                const daysCanBunk = perDay > 0 ? Math.floor(canBunk / perDay) : 0;
+                message = `<i class="fas fa-check-circle"></i> You are safe with <span class="highlight ${colorClass}">${percentage.toFixed(2)}%</span> attendance.<br>
                   You can afford to miss <span class="highlight">${canBunk}</span> more class(es).<br>
-                  That's approximately <span class="highlight">${daysCanBunk}</span> day(s)                    } els                        colorClass = percentage >= (mandatory * 0.8) ? 'yellow' : 're                        const needToAttend = Math.ceil((mandatory * total - attended * 100) / (100 - mandatory                        const daysToAttend = perDay > 0 ? Math.ceil(needToAttend / perDay) : Infini                        const daysString = daysToAttend === Infinity ? "an infinite number of" : `<span class="highlight">${daysToAttend}</span>                        message = `<i class="fas fa-exclamation-triangle"></i> Current Attendance: <span class="highlight ${colorClass}">${percentage.toFixed(2)}%</span>.<br>
+                  That's approximately <span class="highlight">${daysCanBunk}</span> day(s).`;
+            } else {
+                colorClass = percentage >= (mandatory * 0.8) ? 'yellow' : 'red';
+                const needToAttend = Math.ceil((mandatory * total - attended * 100) / (100 - mandatory));
+                const daysToAttend = perDay > 0 ? Math.ceil(needToAttend / perDay) : Infinity;
+                const daysString = daysToAttend === Infinity ? "an infinite number of" : `<span class="highlight">${daysToAttend}</span>`;
+                message = `<i class="fas fa-exclamation-triangle"></i> Current Attendance: <span class="highlight ${colorClass}">${percentage.toFixed(2)}%</span>.<br>
                   You need to attend <span class="highlight">${needToAttend}</span> more class(es) consecutively.<br>
-                  That's approximately ${daysString} day(s) to reach <span class="highlight">${mandatory}%</span>                                       resultContent.innerHTML = messa                    setTimeout(() => resultContent.classList.add('visible'), 5                      </script>
+                  That's approximately ${daysString} day(s) to reach <span class="highlight">${mandatory}%</span>.`;
+            }
+            
+            resultContent.innerHTML = message;
+            setTimeout(() => resultContent.classList.add('visible'), 50);
+        }
+        </script>
 </body>
 
 </html>
