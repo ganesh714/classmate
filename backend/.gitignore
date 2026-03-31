@@ -1,0 +1,26 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+env/
+venv/
+.venv/
+*.so
+.Python
+
+# Distribution / Beta
+dist/
+build/
+*.egg-info/
+
+# Environment variables
+.env
+.env.*
+!.env.example
+
+# IDEs
+.vscode/
+.idea/
+
+# Backend-specific
+flake8_errors.txt
