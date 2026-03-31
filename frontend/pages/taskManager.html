@@ -1375,9 +1375,10 @@ Phase 2:
         </div>
     </div>
 
+    <!-- --- API & Auth Helpers (from notes.html) --- -->
+    <script src="../js/api-config.js"></script>
     <script>
-        // --- API & Auth Helpers (from notes.html) ---
-        const API_URL = "https://classmate-juji.onrender.com";
+        const API_URL = CONFIG.API_BASE_URL;
         function getAuthToken() {
             return localStorage.getItem('auth_token');
         }

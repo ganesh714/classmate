@@ -1590,6 +1590,7 @@
     </div>
 
 
+    <script src="../js/api-config.js"></script>
     <script>
         document.addEventListener("DOMContentLoaded", () => {
             // --- State ---
@@ -1637,7 +1638,7 @@
             const attachmentViewerClose = document.querySelector(".attachment-viewer-close");
 
             // --- API & Auth ---
-            const API_URL = "https://classmate-juji.onrender.com"; // Your server URL
+            const API_URL = CONFIG.API_BASE_URL; // Your server URL
 
             function getAuthToken() {
                 return localStorage.getItem('auth_token');

@@ -1782,6 +1782,7 @@
             </div>
         </div>
     </div>
+    <script src="../js/api-config.js"></script>
     <script>
         const chatContainer = document.getElementById("chat-container");
         const userInput = document.getElementById("user-input");
@@ -1800,8 +1801,8 @@
         const todoListOption = document.getElementById("todo-list-option");
         const sidebarSearchBtn = document.getElementById("sidebar-search-btn");
         const sidebarSearchInput = document.getElementById("sidebar-search-input");
-        const serverUrl = "https://classmate-juji.onrender.com";
-        const API_URL = "https://classmate-juji.onrender.com"; // API for Notes & Tasks
+        const serverUrl = CONFIG.API_BASE_URL;
+        const API_URL = CONFIG.API_BASE_URL; // API for Notes & Tasks
         const style = document.createElement("style");
         const toast = document.getElementById("toast");
         const themeToggleBtn = document.getElementById("theme-toggle-btn");

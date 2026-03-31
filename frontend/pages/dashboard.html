@@ -805,11 +805,10 @@
     </div>
 
     <!-- Chart.js for visualizations -->
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-
+    <script src="../js/api-config.js"></script>
     <script>
         // --- START: API & AUTH HELPERS ---
-        const API_URL = "https://classmate-juji.onrender.com";
+        const API_URL = CONFIG.API_BASE_URL;
 
         function getAuthToken() {
             return localStorage.getItem('auth_token');

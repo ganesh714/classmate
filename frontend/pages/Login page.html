@@ -517,6 +517,7 @@
         </div>
     </div>
 
+    <script src="../js/api-config.js"></script>
     <script>
         // DOM elements
         const loginForm = document.getElementById('login-form');
@@ -526,7 +527,7 @@
         const errorMessage = document.getElementById('error-message');
         const togglePassword = document.getElementById('togglePassword');
         const themeToggle = document.getElementById('themeToggle');
-        const serverUrl = "https://classmate-juji.onrender.com"; // Update with your server URL
+        const serverUrl = CONFIG.API_BASE_URL; // Update with your server URL
 
         // Redirect if already logged in
         if (localStorage.getItem('auth_token')) {

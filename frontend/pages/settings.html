@@ -1130,8 +1130,9 @@
     <!-- Toast notification -->
     <div id="toast" class="toast"></div>
 
+    <script src="../js/api-config.js"></script>
     <script>
-        const serverUrl = "https://classmate-juji.onrender.com";
+        const serverUrl = CONFIG.API_BASE_URL;
         const pageLoader = document.getElementById('pageLoader');
 
         function getAuthToken() {
