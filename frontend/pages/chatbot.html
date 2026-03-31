@@ -973,6 +973,47 @@
             /* Match other input buttons */
         }
 
+        /* File upload styles */
+        .file-upload-status {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 8px 12px;
+            background: var(--bg-secondary);
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            margin-top: 8px;
+            font-size: 0.9rem;
+        }
+
+        .file-name {
+            color: var(--text-primary);
+            font-weight: 500;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            max-width: 200px;
+        }
+
+        .remove-file-btn {
+            background: none;
+            border: none;
+            color: var(--text-secondary);
+            cursor: pointer;
+            padding: 4px;
+            border-radius: 4px;
+            transition: all 0.2s ease;
+        }
+
+        .remove-file-btn:hover {
+            background: rgba(255, 0, 0, 0.1);
+            color: #ff4444;
+        }
+
+        #file-upload-btn:hover {
+            color: var(--accent-primary);
+        }
+
         /* Active state for To-Do List toggle */
         #todo-list-option.active {
             color: #4CAF50;
@@ -1730,9 +1771,12 @@
             </main>
             <div class="input-container">
                 <div class="input-wrapper">
+                    <input type="file" id="file-input" accept=".pdf,.docx,.txt" style="display: none;">
                     <textarea id="user-input" placeholder="Ask ClassMate" rows="1"></textarea>
                     <div class="input-buttons">
                         <!-- Moved To-Do List button here -->
+                        <button class="input-button" id="file-upload-btn" title="Upload File (PDF, DOCX, TXT)"><i
+                                class="fas fa-paperclip"></i></button>
                         <button class="input-button" id="todo-list-option" title="To-Do List"><i
                                 class="fas fa-list-check"></i></button>
                         <button class="input-button" id="mic-button" title="Speak"><i
@@ -1741,6 +1785,13 @@
                                 class="fas fa-paper-plane"></i></button>
                     </div>
                     <!-- Removed bottom-icons div -->
+                </div>
+                <!-- File upload status -->
+                <div class="file-upload-status" id="file-upload-status" style="display: none;">
+                    <span class="file-name" id="file-name"></span>
+                    <button class="remove-file-btn" id="remove-file-btn" title="Remove File">
+                        <i class="fas fa-times"></i>
+                    </button>
                 </div>
             </div>
         </div>
@@ -1800,6 +1851,11 @@
         const todoListOption = document.getElementById("todo-list-option");
         const sidebarSearchBtn = document.getElementById("sidebar-search-btn");
         const sidebarSearchInput = document.getElementById("sidebar-search-input");
+        const fileInput = document.getElementById("file-input");
+        const fileUploadBtn = document.getElementById("file-upload-btn");
+        const fileUploadStatus = document.getElementById("file-upload-status");
+        const fileName = document.getElementById("file-name");
+        const removeFileBtn = document.getElementById("remove-file-btn");
         const serverUrl = "https://classmate-juji.onrender.com";
         const API_URL = "https://classmate-juji.onrender.com"; // API for Notes & Tasks
         const style = document.createElement("style");
@@ -1821,6 +1877,7 @@
         let chatToDelete = null;
 
         let currentUserSettings = null; // To store fetched user settings
+        let uploadedFile = null; // To store uploaded file data
 
         let defaultPromptBase = `You are **ClassMate**, an AI-powered student assistant designed to help users manage academics, track goals, organize tasks, and stay motivated. You have a friendly, supportive, and helpful personality. Your tone adapts to the user — casual if they're casual, serious when they are serious.
 
@@ -1983,7 +2040,7 @@ Remember to break your goals into phases and tasks.`;
         }
 
         function getAuthToken() {
-            return localStorage.getItem('auth_token');
+            const token = localStorage.getItem('auth_token');
             if (!token) {
                 // Redirect to login if in standalone mode
                 if (window.location.pathname.includes('chatbot.html')) {
@@ -2202,6 +2259,39 @@ Remember to break your goals into phases and tasks.`;
             micButton.style.display = hasText ? "none" : "flex";
             sendButton.style.display = hasText ? "flex" : "none";
             sendButton.disabled = !hasText;
+        }
+
+        // File upload functions
+        function handleFileUpload(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            // Check file size (max 10MB)
+            if (file.size > 10 * 1024 * 1024) {
+                showToast("File size must be less than 10MB", "error");
+                fileInput.value = '';
+                return;
+            }
+
+            // Check file type
+            const allowedTypes = ['application/pdf', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', 'text/plain'];
+            if (!allowedTypes.includes(file.type) && !file.name.toLowerCase().match(/\.(pdf|docx|txt)$/)) {
+                showToast("Please upload a PDF, DOCX, or TXT file", "error");
+                fileInput.value = '';
+                return;
+            }
+
+            uploadedFile = file;
+            fileName.textContent = file.name;
+            fileUploadStatus.style.display = 'flex';
+            showToast(`File "${file.name}" uploaded successfully`, "success");
+        }
+
+        function removeUploadedFile() {
+            uploadedFile = null;
+            fileInput.value = '';
+            fileUploadStatus.style.display = 'none';
+            showToast("File removed", "info");
         }
 
         userInput.addEventListener("input", function () {
@@ -2937,13 +3027,131 @@ Remember to break your goals into phases and tasks.`;
             }
         }
 
-        sendButton.addEventListener("click", sendMessage);
+        async function sendMessageWithFile() {
+            if (!uploadedFile) {
+                sendMessage();
+                return;
+            }
+
+            const messageText = userInput.value.trim();
+            if (!messageText || messageBeingSent || !currentChatId) return;
+
+            // Create FormData for file upload
+            const formData = new FormData();
+            formData.append('file', uploadedFile);
+            formData.append('prompt', messageText);
+
+            // UI State Management
+            messageBeingSent = true;
+            sendButton.disabled = true;
+            loadingIndicator.style.display = "flex";
+            userInput.value = "";
+            userInput.placeholder = "ClassMate is analyzing your file...";
+            userInput.disabled = true;
+
+            // If this is the first message in a temp chat, create a real one on the backend
+            if (currentChatId === 'temp_chat') {
+                try {
+                    const token = getAuthToken();
+                    const newChat = await createChat(messageText.substring(0, 30) || "New Chat", token);
+
+                    // Migrate temp chat data
+                    const tempMessages = allChats['temp_chat']?.messages || [];
+                    delete allChats['temp_chat'];
+
+                    currentChatId = newChat._id; // use real chat ID from backend
+                    allChats[currentChatId] = {
+                        id: currentChatId,
+                        title: newChat.title,
+                        messages: [...tempMessages],
+                        lastActivityTimestamp: Date.now()
+                    };
+
+                    // Update chatHistory entry
+                    const idx = chatHistory.findIndex(c => c.id === 'temp_chat');
+                    if (idx !== -1) {
+                        chatHistory[idx].id = currentChatId;
+                    } else {
+                        chatHistory.unshift({
+                            id: currentChatId,
+                            title: newChat.title,
+                            updated_at: new Date(),
+                            preview: null
+                        });
+                    }
+
+                    renderChatHistory();
+                } catch (e) {
+                    console.error("Failed to create chat:", e);
+                    showToast("Could not create chat. Try again.", "error");
+                    messageBeingSent = false;
+                    loadingIndicator.style.display = "none";
+                    return;
+                }
+            }
+
+            // Add message to UI immediately
+            addMessageToUI("user", messageText);
+            
+            // Add file info to UI
+            const fileInfo = ` File uploaded: ${uploadedFile.name}`;
+            addMessageToUI("user", fileInfo);
+
+            await addMessage(currentChatId, {
+                sender: "user",
+                content: messageText + "\n" + fileInfo
+            }, getAuthToken());
+
+            try {
+                // Send request with file
+                const response = await fetchWithAuth(`${API_URL}/api/chat-with-file`, {
+                    method: 'POST',
+                    body: formData
+                });
+
+                if (!response.ok) throw new Error('File processing error');
+
+                const data = await response.json();
+                addMessageToUI("bot", data.reply);
+                await addMessage(currentChatId, {
+                    sender: "bot",
+                    content: data.reply
+                }, getAuthToken());
+
+            } catch (error) {
+                console.error("Error sending message with file:", error);
+                showToast("Failed to process file. Please try again.", "error");
+                addMessageToUI("bot", "Sorry, I couldn't process your file. Please try again.");
+                await addMessage(currentChatId, {
+                    sender: "bot",
+                    content: "Sorry, I couldn't process your file. Please try again."
+                }, getAuthToken());
+            } finally {
+                messageBeingSent = false;
+                userInput.disabled = false;
+                userInput.placeholder = isToDoListModeActive ? "Enter goal for To-Do List..." : "Ask ClassMate";
+                sendButton.disabled = true;
+                userInput.focus();
+                loadingIndicator.style.display = "none";
+                removeUploadedFile(); // Clear file after sending
+            }
+        }
+
+        sendButton.addEventListener("click", sendMessageWithFile);
         userInput.addEventListener("keypress", (e) => {
             if (e.key === "Enter" && !e.shiftKey) {
                 e.preventDefault();
-                sendMessage();
+                sendMessageWithFile();
             }
         });
+
+        // File upload event listeners
+        fileUploadBtn.addEventListener("click", () => {
+            fileInput.click();
+        });
+
+        fileInput.addEventListener("change", handleFileUpload);
+        removeFileBtn.addEventListener("click", removeUploadedFile);
 
         if ("webkitSpeechRecognition" in window) {
             recognition = new webkitSpeechRecognition();
