@@ -836,6 +836,10 @@
 				order: 5;
 			}
 
+			.vertical-panel-narrow .nav-item[data-page="mock-interview.html"] {
+				order: 6;
+			}
+
 			.vertical-panel-narrow .nav-item[data-page="settings.html"] {
 				display: none !important;
 			}
@@ -885,6 +889,9 @@
 				<div class="nav-item" data-page="chatbot.html">
 					<i class="fa-solid fa-robot" title="AI Chatbot"></i>
 				</div>
+				<div class="nav-item" data-page="mock-interview.html">
+					<i class="fa-solid fa-microphone-lines" title="Mock Interview"></i>
+				</div>
 				<div class="nav-item" data-page="notes.html">
 					<i class="fas fa-sticky-note" title="Notes"></i>
 				</div>
@@ -933,6 +940,10 @@
 				<div class="nav-item-expanded" data-page="chatbot.html">
 					<div class="nav-icon"><i class="fa-solid fa-robot"></i></div>
 					<span class="nav-text">AI Chatbot</span>
+				</div>
+				<div class="nav-item-expanded" data-page="mock-interview.html">
+					<div class="nav-icon"><i class="fa-solid fa-microphone-lines"></i></div>
+					<span class="nav-text">Mock Interview</span>
 				</div>
 				<div class="nav-item-expanded" data-page="notes.html">
 					<div class="nav-icon"><i class="fas fa-sticky-note"></i></div>
@@ -1278,6 +1289,7 @@
 				'notes.html',
 				'taskManager.html',
 				'attendance.html',
+				'mock-interview.html',
 				'settings.html'
 			];
 			if (!lastVisitedPage || !validPages.includes(lastVisitedPage)) {
