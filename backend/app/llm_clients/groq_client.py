@@ -1,5 +1,5 @@
 import aiohttp
-from .base import clean_ai_response
+from .base import clean_ai_response, ServiceOverloadedException
 
 class GroqClient:
     def __init__(self, api_key: str, model: str = "llama-3.3-70b-versatile"):
@@ -19,6 +19,8 @@ class GroqClient:
         
         async with session.post(self.url, headers=headers, json=payload) as response:
             if response.status != 200:
+                if response.status == 429:
+                    raise ServiceOverloadedException("Groq")
                 text = await response.text()
                 raise Exception(f"Groq API Error {response.status}: {text}")
             data = await response.json()
