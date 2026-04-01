@@ -1,5 +1,11 @@
 import re
 
+class ServiceOverloadedException(Exception):
+    def __init__(self, provider: str, message: str = None):
+        self.provider = provider or "AI"
+        self.message = message or f"Our {self.provider} service is currently busy. Please try again in a moment."
+        super().__init__(self.message)
+
 def clean_ai_response(text: str) -> str:
     if not text:
         return ""
