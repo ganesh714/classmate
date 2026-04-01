@@ -77,6 +77,7 @@ class UserResponse(BaseModel):
     chatbot_tone: str | None = "friendly_supportive"
     chatbot_custom_instructions: str | None = ""
     chatbot_user_context: str | None = ""
+    llm_model: str | None = "classmate"
 
 
 class UpdateProfileModel(BaseModel):
@@ -88,6 +89,7 @@ class UpdateProfileModel(BaseModel):
     chatbot_tone: str | None = None
     chatbot_custom_instructions: str | None = None
     chatbot_user_context: str | None = None
+    llm_model: str | None = None
 
 
 class ChangePasswordModel(BaseModel):
@@ -152,6 +154,7 @@ async def register(user: RegisterModel):
         "chatbot_tone": "friendly_supportive",
         "chatbot_custom_instructions": "",
         "chatbot_user_context": "",
+        "llm_model": "classmate",
         "created_at": datetime.utcnow()
     }
     result = users_collection.insert_one(user_data)
@@ -170,7 +173,8 @@ async def register(user: RegisterModel):
         chatbot_nickname=created_user.get("chatbot_nickname", ""),
         chatbot_tone=created_user.get("chatbot_tone", "friendly_supportive"),
         chatbot_custom_instructions=created_user.get("chatbot_custom_instructions", ""),
-        chatbot_user_context=created_user.get("chatbot_user_context", "")
+        chatbot_user_context=created_user.get("chatbot_user_context", ""),
+        llm_model=created_user.get("llm_model", "classmate")
     )
 
 @router.post("/api/login")
@@ -197,7 +201,8 @@ async def login(form_data: LoginModel):
             "chatbot_nickname": db_user.get("chatbot_nickname", ""),
             "chatbot_tone": db_user.get("chatbot_tone", "friendly_supportive"),
             "chatbot_custom_instructions": db_user.get("chatbot_custom_instructions", ""),
-            "chatbot_user_context": db_user.get("chatbot_user_context", "")
+            "chatbot_user_context": db_user.get("chatbot_user_context", ""),
+            "llm_model": db_user.get("llm_model", "classmate")
         }
     }
 
@@ -213,7 +218,8 @@ async def get_me(current_user: dict = Depends(get_current_user)):
         chatbot_nickname=current_user.get("chatbot_nickname", ""),
         chatbot_tone=current_user.get("chatbot_tone", "friendly_supportive"),
         chatbot_custom_instructions=current_user.get("chatbot_custom_instructions", ""),
-        chatbot_user_context=current_user.get("chatbot_user_context", "")
+        chatbot_user_context=current_user.get("chatbot_user_context", ""),
+        llm_model=current_user.get("llm_model", "classmate")
     )
 
 @router.patch("/api/me", response_model=UserResponse)
@@ -231,7 +237,8 @@ async def update_me(profile_data: UpdateProfileModel, current_user: dict = Depen
             chatbot_nickname=current_user.get("chatbot_nickname", ""),
             chatbot_tone=current_user.get("chatbot_tone", "friendly_supportive"),
             chatbot_custom_instructions=current_user.get("chatbot_custom_instructions", ""),
-            chatbot_user_context=current_user.get("chatbot_user_context", "")
+            chatbot_user_context=current_user.get("chatbot_user_context", ""),
+            llm_model=current_user.get("llm_model", "classmate")
         )
 
     users_collection.update_one(
@@ -250,7 +257,8 @@ async def update_me(profile_data: UpdateProfileModel, current_user: dict = Depen
         chatbot_nickname=updated_user_doc.get("chatbot_nickname", ""),
         chatbot_tone=updated_user_doc.get("chatbot_tone", "friendly_supportive"),
         chatbot_custom_instructions=updated_user_doc.get("chatbot_custom_instructions", ""),
-        chatbot_user_context=updated_user_doc.get("chatbot_user_context", "")
+        chatbot_user_context=updated_user_doc.get("chatbot_user_context", ""),
+        llm_model=updated_user_doc.get("llm_model", "classmate")
     )
 
 # ... (rest of userapi.py remains the same: change_password, delete_me, health_check) ...
