@@ -1324,6 +1324,12 @@
 
 					const pageToLoad = item.dataset.page;
 
+					if (pageToLoad === "mock-interview.html") {
+						window.open("http://127.0.0.1:8001/", "_blank");
+						e.preventDefault();
+						return;
+					}
+
 					document.querySelectorAll(".nav-item:not(.logout), .nav-item-expanded:not(.logout)").forEach(i => {
 						if (i.id !== 'darkToggle' && i.id !== 'darkToggleExpanded') {
 							i.classList.remove("active");
