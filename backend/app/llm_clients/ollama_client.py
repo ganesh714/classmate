@@ -1,5 +1,5 @@
 import aiohttp
-from .base import clean_ai_response
+from .base import clean_ai_response, ServiceOverloadedException
 
 class OllamaClient:
     def __init__(self, base_url: str, model: str = "llama3"):
@@ -16,6 +16,8 @@ class OllamaClient:
         
         async with session.post(self.url, json=payload) as response:
             if response.status != 200:
+                if response.status == 429:
+                    raise ServiceOverloadedException("Llama (Ollama)")
                 text = await response.text()
                 raise Exception(f"Ollama API Error {response.status}: {text}")
             data = await response.json()
