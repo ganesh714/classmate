@@ -1,6 +1,6 @@
 import aiohttp
 import asyncio
-from .base import clean_ai_response
+from .base import clean_ai_response, ServiceOverloadedException
 
 class GeminiClient:
     def __init__(self, api_keys: list[str], model: str = "gemini-2.5-flash"):
@@ -24,6 +24,8 @@ class GeminiClient:
                 
                 async with session.post(url, headers=headers, json=payload) as response:
                     if response.status != 200:
+                        if response.status == 429:
+                            raise ServiceOverloadedException("Gemini")
                         text = await response.text()
                         raise Exception(f"Gemini API (Key {i+1}) Error {response.status}: {text}")
                     
