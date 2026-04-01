@@ -1031,6 +1031,51 @@
             </div>
         </div>
 
+        <!-- Model Selection Settings -->
+        <div class="settings-card fade-in" style="animation-delay: 0.25s;">
+            <div class="settings-header">
+                <div class="settings-header-main">
+                    <i class="fas fa-microchip"></i>
+                    <h2 class="settings-title">AI Model Selection</h2>
+                </div>
+            </div>
+            <div class="settings-card-content">
+                <div class="form-group">
+                    <label class="form-label">Preferred AI Model</label>
+                    <div class="theme-options">
+                        <div class="theme-option" title="Google's powerful multifaceted model">
+                            <input type="radio" id="modelGemini" name="llm_model" value="gemini" class="theme-radio">
+                            <label for="modelGemini" class="theme-label">
+                                <div style="font-size: 1.5rem; color: var(--accent);"><i class="fas fa-bolt"></i></div>
+                                <span class="theme-name">Gemini</span>
+                            </label>
+                        </div>
+                        <div class="theme-option" title="Llama 3.3 70B (High Performance - Groq Cloud)">
+                            <input type="radio" id="modelLlama" name="llm_model" value="llama" class="theme-radio">
+                            <label for="modelLlama" class="theme-label">
+                                <div style="font-size: 1.5rem; color: var(--accent-secondary);"><i class="fas fa-cloud"></i></div>
+                                <span class="theme-name">Llama 3.3</span>
+                            </label>
+                        </div>
+                        <div class="theme-option" title="Custom Classmate model (Strictly Offline - Ollama)">
+                            <input type="radio" id="modelClassmate" name="llm_model" value="classmate" class="theme-radio">
+                            <label for="modelClassmate" class="theme-label">
+                                <div style="font-size: 1.5rem; color: var(--success);"><i class="fas fa-home"></i></div>
+                                <span class="theme-name">Classmate</span>
+                            </label>
+                        </div>
+                    </div>
+                    <small style="color: var(--text-secondary); font-size: 0.8rem; display: block; margin-top: 0.5rem;">
+                        <b>Gemini:</b> Google Cloud. <b>Llama 3.3:</b> Groq Cloud (70B). <b>Classmate:</b> Strictly Offline (Ollama).
+                    </small>
+                </div>
+
+                <button id="saveModelSettingsBtn" class="btn btn-primary">
+                    <i class="fas fa-save"></i> Save Model Preference
+                </button>
+            </div>
+        </div>
+
         <!-- Security Settings -->
         <div class="settings-card fade-in" style="animation-delay: 0.3s;">
             <div class="settings-header">
@@ -1169,6 +1214,7 @@
             const saveChatbotSettingsBtn = document.getElementById('saveChatbotSettingsBtn');
             const clearCurrentChatHistoryBtn = document.getElementById('clearCurrentChatHistoryBtn');
             const clearAllChatHistoryBtn = document.getElementById('clearAllChatHistoryBtn');
+            const saveModelSettingsBtn = document.getElementById('saveModelSettingsBtn');
 
             const changePasswordBtn = document.getElementById('changePasswordBtn');
             const deleteAccountBtn = document.getElementById('deleteAccountBtn');
@@ -1440,6 +1486,10 @@
                         chatbotCustomInstructionsTextarea.value = userData.chatbot_custom_instructions || '';
                         chatbotUserContextTextarea.value = userData.chatbot_user_context || '';
 
+                        const selectedModel = userData.llm_model || 'classmate';
+                        const modelRadio = document.querySelector(`input[name="llm_model"][value="${selectedModel}"]`);
+                        if (modelRadio) modelRadio.checked = true;
+
                     } else {
                         console.error("Failed to load user data from backend:", response.status);
                         showToast("Could not load profile data.", "error");
@@ -1487,7 +1537,8 @@
                     chatbot_nickname: userNicknameInput.value,
                     chatbot_tone: chatbotToneSelect.value,
                     chatbot_custom_instructions: chatbotCustomInstructionsTextarea.value,
-                    chatbot_user_context: chatbotUserContextTextarea.value
+                    chatbot_user_context: chatbotUserContextTextarea.value,
+                    llm_model: document.querySelector('input[name="llm_model"]:checked')?.value || 'classmate'
                 };
 
                 const activeSaveButton = event.target.closest('button');
@@ -1534,6 +1585,10 @@
                         chatbotCustomInstructionsTextarea.value = updatedUser.chatbot_custom_instructions || '';
                         chatbotUserContextTextarea.value = updatedUser.chatbot_user_context || '';
 
+                        const updatedModel = updatedUser.llm_model || 'classmate';
+                        const updatedModelRadio = document.querySelector(`input[name="llm_model"][value="${updatedModel}"]`);
+                        if (updatedModelRadio) updatedModelRadio.checked = true;
+
                     } else {
                         const errorData = await response.json();
                         showToast(errorData.detail || "Failed to update settings.", "error");
@@ -1549,6 +1604,7 @@
 
             saveProfileBtn.addEventListener('click', saveAllSettings);
             saveChatbotSettingsBtn.addEventListener('click', saveAllSettings);
+            if (saveModelSettingsBtn) saveModelSettingsBtn.addEventListener('click', saveAllSettings);
 
 
             clearCurrentChatHistoryBtn.addEventListener('click', () => showConfirmationModal(clearCurrentChatModal));
